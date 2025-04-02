@@ -3,9 +3,12 @@
 
 global:
   baseDomain: example.com
+  namespace: unbind-system
 
 components:
   longhorn:
+    enabled: false
+  kubePrometheusStack:
     enabled: true
 
 overrides:
@@ -16,3 +19,8 @@ overrides:
       reclaimPolicy: Delete
     defaultSettings:
       defaultReplicaCount: 1
+  kubePrometheusStack:
+    # Configurable retention period
+    retention: "7d"
+    # Configurable storage size
+    storage: "5Gi"
