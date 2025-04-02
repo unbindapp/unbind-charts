@@ -24,3 +24,7 @@ overrides:
     retention: "7d"
     # Configurable storage size
     storage: "5Gi"
+  buildkitd:
+    image: moby/buildkit:v0.20.2-rootless
+    replicas: 1
+    maxParallism: 2

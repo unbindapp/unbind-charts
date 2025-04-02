@@ -6,6 +6,9 @@ repositories:
     url: https://charts.longhorn.io
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
+  - name: incubator
+    url: https://charts.helm.sh/incubator
+
 # Environment values are loaded from environment-specific files
 environments:
   default:
@@ -55,3 +58,124 @@ releases:
     labels:
       component: monitoring
       installed: {{ .Environment.Values | get "components.kubePrometheusStack.enabled" true }}
+  - name: buildkit
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: incubator/raw
+    values:
+    - resources:
+      - apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: buildkit-config
+          namespace: '{{ .Environment.Values | get "global.namespace" }}'
+        data:
+          buildkitd.toml: |
+            [worker.oci]
+            # Limit concurrency of build steps:
+            max-parallelism = {{ .Environment.Values | get "overrides.buildkitd.maxParallism" }}
+            [registry."{{ .Environment.Values | get "overrides.buildkitd.registry" (printf "docker-registry.%s:5000" (.Environment.Values | get "global.namespace")) }}"]
+            http = true
+            insecure = true
+            [frontend."dockerfile.v0"]
+            enabled = true
+      - apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          labels:
+            app: buildkitd
+          name: buildkitd
+          namespace: '{{ .Environment.Values | get "global.namespace" }}'
+        spec:
+          replicas: {{ .Environment.Values | get "overrides.buildkitd.replicas" 1 }}
+          selector:
+            matchLabels:
+              app: buildkitd
+          template:
+            metadata:
+              labels:
+                app: buildkitd
+            spec:
+              # Don't allow running multiple replicas on the same node
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    - labelSelector:
+                        matchExpressions:
+                          - key: app
+                            operator: In
+                            values:
+                              - buildkitd
+                      topologyKey: "kubernetes.io/hostname"
+              containers:
+                - name: buildkitd
+                  image: {{ .Environment.Values | get "overrides.buildkitd.image" }}
+                  args:
+                    - --addr
+                    - tcp://0.0.0.0:1234
+                    - --config
+                    - /etc/buildkit/buildkitd.toml
+                    - --oci-worker-no-process-sandbox
+                  readinessProbe:
+                    exec:
+                      command:
+                        - buildctl
+                        - --addr
+                        - tcp://localhost:1234
+                        - debug
+                        - workers
+                    initialDelaySeconds: 5
+                    periodSeconds: 30
+                  livenessProbe:
+                    exec:
+                      command:
+                        - buildctl
+                        - --addr
+                        - tcp://localhost:1234
+                        - debug
+                        - workers
+                    initialDelaySeconds: 5
+                    periodSeconds: 30
+                  securityContext:
+                    privileged: true
+                    seccompProfile:
+                      type: Unconfined
+                    runAsUser: 1000
+                    runAsGroup: 1000
+                  ports:
+                    - containerPort: 1234
+                      name: buildkit
+                  env:
+                    - name: BUILDKIT_STEP_LOG_MAX_SIZE
+                      value: "-1" # Disable truncating logs
+                  volumeMounts:
+                    - name: buildkit-storage
+                      mountPath: /var/lib/buildkit
+                    - name: buildkit-config
+                      mountPath: /etc/buildkit
+                      readOnly: true
+              volumes:
+                - name: buildkit-storage
+                  emptyDir: {}
+                - name: buildkit-config
+                  configMap:
+                    name: buildkit-config
+                    items:
+                      - key: buildkitd.toml
+                        path: buildkitd.toml
+      - apiVersion: v1
+        kind: Service
+        metadata:
+          labels:
+            app: buildkitd
+          name: buildkitd
+          namespace: '{{ .Environment.Values | get "global.namespace" }}'
+        spec:
+          ports:
+            - port: 1234
+              protocol: TCP
+              targetPort: buildkit
+          selector:
+            app: buildkitd
+    labels:
+      component: build
+      installed: {{ .Environment.Values | get "components.buildkitd.enabled" true }}
