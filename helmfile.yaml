@@ -1,0 +1,41 @@
+# helmfile.yaml
+# Main Helmfile configuration
+
+# Repositories
+repositories:
+  - name: longhorn
+    url: https://charts.longhorn.io
+
+# Environment values are loaded from environment-specific files
+environments:
+  default:
+    values:
+      - environments/default.yaml
+
+# Configure "requires" for dependencies between releases
+helmDefaults:
+  wait: true
+  timeout: 600
+  atomic: true
+  createNamespace: true
+
+---
+# Releases
+releases:
+  # Managed Helm Charts with version locks
+  - name: longhorn
+    namespace: longhorn-system
+    chart: longhorn/longhorn
+    version: 1.8.1  # Lock to specific version for compatibility
+    values:
+      - values/longhorn.yaml
+      # This is where we add dynamic values that get merged into the chart
+      - persistence:
+          defaultClass: {{ .Environment.Values | get "overrides.longhorn.persistence.defaultClass" true }}
+          defaultClassReplicaCount: {{ .Environment.Values | get "overrides.longhorn.persistence.defaultClassReplicaCount" 1 }}
+          reclaimPolicy: {{ .Environment.Values | get "overrides.longhorn.persistence.reclaimPolicy" "Delete" }}
+        defaultSettings:
+          defaultReplicaCount: {{ .Environment.Values | get "overrides.longhorn.defaultSettings.defaultReplicaCount" 1 }}
+    labels:
+      component: storage
+    installed: {{ .Environment.Values | get "components.longhorn.enabled" "true" }}

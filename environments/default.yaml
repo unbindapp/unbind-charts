@@ -1,0 +1,18 @@
+# environments/default.yaml
+# Default environment settings
+
+global:
+  baseDomain: example.com
+
+components:
+  longhorn:
+    enabled: true
+
+overrides:
+  longhorn:
+    persistence:
+      defaultClass: true
+      defaultClassReplicaCount: 1
+      reclaimPolicy: Delete
+    defaultSettings:
+      defaultReplicaCount: 1
