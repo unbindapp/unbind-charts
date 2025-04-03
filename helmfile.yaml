@@ -6,6 +6,8 @@ repositories:
     url: https://charts.longhorn.io
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
+  - name: postgres-operator
+    url: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
 
 # Environment values are loaded from environment-specific files
 environments:
@@ -73,3 +75,15 @@ releases:
     labels:
       component: build
       installed: {{ .Environment.Values | get "components.buildkitd.enabled" true }}
+  - name: postgres-operator
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: postgres-operator/postgres-operator
+    version: 1.14.0
+    values:
+      - 
+        configGeneral:
+          docker_image: {{ .Environment.Values | get "overrides.postgresOperator.spiloImage" "unbindapp/spilo:17" }}
+
+    labels:
+      component: postgres-operator
+      installed: {{ .Environment.Values | get "components.postgresOperator.enabled" true }}

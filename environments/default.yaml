@@ -10,6 +10,10 @@ components:
     enabled: false
   kubePrometheusStack:
     enabled: true
+  buildkitd:
+    enabled: true
+  postgresOperator:
+    enabled: true
 
 overrides:
   longhorn:
@@ -28,3 +32,5 @@ overrides:
     image: moby/buildkit:v0.20.2-rootless
     replicas: 1
     maxParallism: 2
+  postgresOperator:
+    spiloImage: unbindapp/spilo:17
