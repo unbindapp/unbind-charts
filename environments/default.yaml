@@ -14,6 +14,8 @@ components:
     enabled: true
   postgresOperator:
     enabled: true
+  database:
+    enabled: true
 
 overrides:
   longhorn:
@@ -34,3 +36,13 @@ overrides:
     maxParallism: 2
   postgresOperator:
     spiloImage: unbindapp/spilo:17
+  database:
+    replicaCount: 1
+    storage: "5Gi"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 512m
+        memory: 1Gi

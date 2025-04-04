@@ -40,6 +40,7 @@ releases:
     labels:
       component: storage
       installed: {{ .Environment.Values | get "components.longhorn.enabled" true }}
+
   - name: kube-prometheus-stack
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: prometheus-community/kube-prometheus-stack
@@ -58,6 +59,7 @@ releases:
     labels:
       component: monitoring
       installed: {{ .Environment.Values | get "components.kubePrometheusStack.enabled" true }}
+
   - name: buildkit
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: ./charts/buildkitd
@@ -75,6 +77,7 @@ releases:
     labels:
       component: build
       installed: {{ .Environment.Values | get "components.buildkitd.enabled" true }}
+
   - name: postgres-operator
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: postgres-operator/postgres-operator
@@ -83,7 +86,40 @@ releases:
       - 
         configGeneral:
           docker_image: {{ .Environment.Values | get "overrides.postgresOperator.spiloImage" "unbindapp/spilo:17" }}
+        configKubernetes:
+          inherited_labels:
+            - unbind-team
+            - unbing-project
+            - unbind-environment
+            - unbind-service
+            - unbind-is-system-db
+            # Helm labels
+            - app.kubernetes.io/managed-by
+            - app.kubernetes.io/name
+            - app.kubernetes.io/instance
+            - app.kubernetes.io/version
+            - helm.sh/chart
 
     labels:
       component: postgres-operator
       installed: {{ .Environment.Values | get "components.postgresOperator.enabled" true }}
+  
+  - name: database
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: ./charts/database
+    needs:
+      - postgres-operator
+    values:
+      - 
+        replicaCount: {{ .Environment.Values | get "overrides.database.replicaCount" 1 }}
+        storage: {{ .Environment.Values | get "overrides.database.storage" "5Gi" }}
+        resources:
+          requests:
+            cpu: {{ .Environment.Values | get "overrides.database.resources.requests.cpu" "100m" }}
+            memory: {{ .Environment.Values | get "overrides.database.resources.requests.memory" "100Mi" }}
+          limits:
+            cpu: {{ .Environment.Values | get "overrides.database.resources.limits.cpu" "512m" }}
+            memory: {{ .Environment.Values | get "overrides.database.resources.limits.memory" "1Gi" }}
+    labels:
+      component: database
+      installed: {{ .Environment.Values | get "components.database.enabled" true }}
