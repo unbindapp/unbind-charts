@@ -30,6 +30,18 @@ spec:
   allowedSourceRanges:
     - 0.0.0.0/0
 
+  databases:
+    dex: dex
+    unbind: unbind
+
+  users:
+    dex:                   
+      flags:
+        - LOGIN
+    unbind:
+      flags: 
+        - SUPERUSER
+
   resources:
     requests:
       cpu: {{ .Values.resources.requests.cpu  }}
