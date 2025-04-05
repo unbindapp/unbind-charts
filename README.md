@@ -34,6 +34,51 @@ kube-state-metrics:
   - --metric-labels-allowlist=pods=[*]
 ```
 
+### registry
+
+At this time, unbind does not support external registries (for local builds) - but it will in the near future.
+
+For now, unbind uses a private internal docker registry for builds from source code.
+
+By default, your kubernetes distribution will not be able to pull from this registry.
+
+An example of configuring this for k3s would be:
+
+/etc/rancher/k3s/registries.yaml
+
+```yaml
+mirrors:
+  docker-registry.unbind-system:5000:
+    endpoint:
+      - 'http://{any node IP for nodeport service}:31571'
+configs:
+  'docker-registry.unbind-system:5000':
+    tls:
+      insecure_skip_verify: true
+```
+
+**NodePort**
+
+A node port service is required for the internal registry, so that the node host can resolve it.
+
+It'd recommended to block incoming access to this port via a firewall.
+
+Example with ufw:
+
+```bash
+sudo ufw default allow outgoing
+sudo ufw default allow incoming
+sudo ufw deny 31571/tcp
+sudo ufw deny 31571/udp
+sudo ufw allow from 192.168.1.0/24 to any port 31571
+```
+
+If running a multi-node cluster, and you have a private network, you'll want to allow access from all of the nodes, it may be like:
+
+```bash
+sudo ufw allow from10.0.0.0/24 to any port 31571
+```
+
 ### buildkitd
 
 Buildkitd will only schedule once per node, so you should not set replicas > the number of nodes in your cluster or else you'll have scheduling errors.

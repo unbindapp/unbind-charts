@@ -35,10 +35,10 @@ releases:
       # This is where we add dynamic values that get merged into the chart
       - persistence:
           defaultClass: {{ .Environment.Values | get "overrides.longhorn.persistence.defaultClass" true }}
-          defaultClassReplicaCount: {{ .Environment.Values | get "overrides.longhorn.persistence.defaultClassReplicaCount" 1 }}
-          reclaimPolicy: {{ .Environment.Values | get "overrides.longhorn.persistence.reclaimPolicy" "Delete" }}
+          defaultClassReplicaCount: {{ .Environment.Values | get "overrides.longhorn.persistence.defaultClassReplicaCount" }}
+          reclaimPolicy: {{ .Environment.Values | get "overrides.longhorn.persistence.reclaimPolicy" }}
         defaultSettings:
-          defaultReplicaCount: {{ .Environment.Values | get "overrides.longhorn.defaultSettings.defaultReplicaCount" 1 }}
+          defaultReplicaCount: {{ .Environment.Values | get "overrides.longhorn.defaultSettings.defaultReplicaCount" }}
     labels:
       component: storage
       installed: {{ .Environment.Values | get "components.longhorn.enabled" true }}
@@ -51,13 +51,13 @@ releases:
       - values/kube-prometheus-stack.yaml
       - prometheus:
           prometheusSpec:
-            retention: {{ .Environment.Values | get "overrides.kubePrometheusStack.retention" "7d" }}
+            retention: {{ .Environment.Values | get "overrides.kubePrometheusStack.retention" }}
             storageSpec:
               volumeClaimTemplate:
                 spec:
                   resources:
                     requests:
-                      storage: {{ .Environment.Values | get "overrides.kubePrometheusStack.storage" "5Gi" }}
+                      storage: {{ .Environment.Values | get "overrides.kubePrometheusStack.storage" }}
     labels:
       component: monitoring
       installed: {{ .Environment.Values | get "components.kubePrometheusStack.enabled" true }}
@@ -176,8 +176,8 @@ releases:
         minio:
           enabled: true
           persistence:
-            enabled: true
-            size: {{ .Environment.Values | get "overrides.loki.minioStorageSize" "5Gi" }}
+            enabled: true∂
+            size: {{ .Environment.Values | get "overrides.loki.minioStorageSize" }}
 
         deploymentMode: SingleBinary
         singleBinary:
@@ -223,9 +223,9 @@ releases:
     values:
       - 
         resources: {}
-        replicaCount: {{ .Environment.Values | get "overrides.buildkitd.replicas" 1 }}
+        replicaCount: {{ .Environment.Values | get "overrides.buildkitd.replicas" }}
         image:
-          repository: {{ .Environment.Values | get "overrides.buildkitd.image" "moby/buildkit:v0.20.2-rootless" }}
+          repository: {{ .Environment.Values | get "overrides.buildkitd.image" }}
         registries:
           - url: {{ .Environment.Values | get "overrides.buildkitd.registry" (printf "docker-registry.%s:5000" (.Environment.Values | get "global.namespace")) }}
             http: true
@@ -242,7 +242,7 @@ releases:
     values:
       - 
         configGeneral:
-          docker_image: {{ .Environment.Values | get "overrides.postgresOperator.spiloImage" "unbindapp/spilo:17" }}
+          docker_image: {{ .Environment.Values | get "overrides.postgresOperator.spiloImage" }}
         configKubernetes:
           inherited_labels:
             - unbind-team
@@ -268,15 +268,32 @@ releases:
       - postgres-operator
     values:
       - 
-        replicaCount: {{ .Environment.Values | get "overrides.database.replicaCount" 1 }}
-        storage: {{ .Environment.Values | get "overrides.database.storage" "5Gi" }}
+        replicaCount: {{ .Environment.Values | get "overrides.database.replicaCount" }}
+        storage: {{ .Environment.Values | get "overrides.database.storage" }}
         resources:
           requests:
-            cpu: {{ .Environment.Values | get "overrides.database.resources.requests.cpu" "100m" }}
-            memory: {{ .Environment.Values | get "overrides.database.resources.requests.memory" "100Mi" }}
+            cpu: {{ .Environment.Values | get "overrides.database.resources.requests.cpu"  }}
+            memory: {{ .Environment.Values | get "overrides.database.resources.requests.memory" }}
           limits:
-            cpu: {{ .Environment.Values | get "overrides.database.resources.limits.cpu" "512m" }}
-            memory: {{ .Environment.Values | get "overrides.database.resources.limits.memory" "1Gi" }}
+            cpu: {{ .Environment.Values | get "overrides.database.resources.limits.cpu" }}
+            memory: {{ .Environment.Values | get "overrides.database.resources.limits.memory" }}
     labels:
       component: database
       installed: {{ .Environment.Values | get "components.database.enabled" true }}
+
+  - name: registry
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: ./charts/registry
+    values:
+      - 
+        replicaCount: {{ .Environment.Values | get "overrides.registry.replicaCount" }}
+        persistence:
+          size: {{ .Environment.Values | get "overrides.registry.persistence.size" }}
+        service:
+          nodePort: {{ .Environment.Values | get "overrides.registry.service.nodePort" }}
+        cleanup:
+          threshold: {{ .Environment.Values | get "overrides.registry.cleanup.threshold" }} # This should be around 80% of the total size, this is for the auto cleanup job
+
+    labels:
+      component: registry
+      installed: {{ .Environment.Values | get "components.registry.enabled" true }}

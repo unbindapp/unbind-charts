@@ -20,13 +20,15 @@ components:
     enabled: true
   loki:
     enabled: true
+  registry:
+    enabled: true
 
 overrides:
   longhorn:
     persistence:
       defaultClass: true
       defaultClassReplicaCount: 1
-      reclaimPolicy: Delete
+      reclaimPolicy: Retain
     defaultSettings:
       defaultReplicaCount: 1
   kubePrometheusStack:
@@ -60,3 +62,12 @@ overrides:
     retentionPeriod: 168h // 7 days
     storageSize: 5Gi
     minioStorageSize: 5Gi
+  
+  registry:
+    replicaCount: 1
+    persistence:
+      size: 5Gi
+    service:
+      nodePort: 31571
+    cleanup:
+      threshold: 4Gi # This should be around 80% of the total size, this is for the auto cleanup job
