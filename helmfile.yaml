@@ -8,6 +8,8 @@ repositories:
     url: https://prometheus-community.github.io/helm-charts
   - name: postgres-operator
     url: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
+  - name: grafana
+    url: https://grafana.github.io/helm-charts 
 
 # Environment values are loaded from environment-specific files
 environments:
@@ -59,6 +61,161 @@ releases:
     labels:
       component: monitoring
       installed: {{ .Environment.Values | get "components.kubePrometheusStack.enabled" true }}
+
+  - name: alloy
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: grafana/alloy
+    version: 0.12.6
+    values:
+      - 
+        alloy:
+          mounts:
+            varlog: true
+          configMap:
+            content: |
+              logging {
+                level  = "info"
+                format = "logfmt"
+              }
+              discovery.kubernetes "pods" {
+                role = "pod"
+                selectors {
+                  role = "pod"
+                  label = "unbind-team,unbind-project,unbind-environment,unbind-service"
+                }
+              }
+              discovery.kubernetes "deployment_pods" {
+                role = "pod"
+                selectors {
+                  role = "pod"
+                  label = "unbind-deployment"
+                }
+              }
+              discovery.relabel "pods" {
+                targets = discovery.kubernetes.pods.targets
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_team"]
+                  target_label  = "unbind_team"
+                }
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_project"]
+                  target_label  = "unbind_project"
+                }
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_environment"]
+                  target_label  = "unbind_environment"
+                }
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_service"]
+                  target_label  = "unbind_service"
+                }
+              }
+              discovery.relabel "deployment_pods" {
+                targets = discovery.kubernetes.deployment_pods.targets
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_deployment"]
+                  target_label  = "unbind_deployment"
+                }
+              }
+              loki.source.kubernetes "pods" {
+                targets = discovery.relabel.pods.output
+                forward_to = [loki.write.endpoint.receiver]
+              }
+              loki.source.kubernetes "deployment_pods" {
+                targets = discovery.relabel.deployment_pods.output
+                forward_to = [loki.write.endpoint.receiver]
+              }
+              loki.write "endpoint" {
+                endpoint {
+                  url = "http://{{ .Environment.Values | get "overrides.alloy.loki.endpoint.host" }}.{{ .Environment.Values | get "overrides.alloy.loki.namespace" .Environment.Values.global.namespace }}.svc.cluster.local:{{ .Environment.Values | get "overrides.alloy.loki.endpoint.port" "80" }}/loki/api/v1/push"
+                  tenant_id = "local"
+                }
+              }
+
+    labels:
+      component: alloy
+      installed: {{ .Environment.Values | get "components.alloy.enabled" true }}
+
+  - name: loki
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: grafana/loki
+    version: 6.29.0
+    values:
+      - 
+        loki:
+          auth_enabled: false
+          commonConfig:
+            replication_factor: 1
+          schemaConfig:
+            configs:
+              - from: "2024-04-01"
+                store: tsdb
+                object_store: s3
+                schema: v13
+                index:
+                  prefix: loki_index_
+                  period: 24h    
+          pattern_ingester:
+            enabled: true
+          limits_config:
+            max_concurrent_tail_requests: 100
+            allow_structured_metadata: true
+            volume_enabled: true
+            retention_period: {{ .Environment.Values | get "overrides.loki.retentionPeriod" }} 
+          ruler:
+            enable_api: true
+          tableManager:
+            retention_deletes_enabled: true
+            retention_period: {{ .Environment.Values | get "overrides.loki.retentionPeriod" }}
+
+        minio:
+          enabled: true
+          persistence:
+            enabled: true
+            size: {{ .Environment.Values | get "overrides.loki.minioStorageSize" "5Gi" }}
+
+        deploymentMode: SingleBinary
+        singleBinary:
+          replicas: 1
+          persistence:
+            enabled: true
+            size: {{ .Environment.Values | get "overrides.loki.storageSize" }}
+
+        # Zero out replica counts of other deployment modes
+        backend:
+          replicas: 0
+        read:
+          replicas: 0
+        write:
+          replicas: 0
+        ingester:
+          replicas: 0
+        querier:
+          replicas: 0
+        queryFrontend:
+          replicas: 0
+        queryScheduler:
+          replicas: 0
+        distributor:
+          replicas: 0
+        compactor:
+          replicas: 0
+        indexGateway:
+          replicas: 0
+        bloomCompactor:
+          replicas: 0
+        bloomGateway:
+          replicas: 0
+
+
+    labels:
+      component: loki
+      installed: {{ .Environment.Values | get "components.loki.enabled" true }}
 
   - name: buildkit
     namespace: '{{ .Environment.Values | get "global.namespace" }}'

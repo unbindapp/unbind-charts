@@ -16,6 +16,10 @@ components:
     enabled: true
   database:
     enabled: true
+  alloy:
+    enabled: true
+  loki:
+    enabled: true
 
 overrides:
   longhorn:
@@ -46,3 +50,13 @@ overrides:
       limits:
         cpu: 512m
         memory: 1Gi
+  alloy:
+    loki:
+      endpoint:
+        host: loki-unbind-gateway
+        port: 80
+        # namespace: // Defaults to global.namespace
+  loki:
+    retentionPeriod: 168h // 7 days
+    storageSize: 5Gi
+    minioStorageSize: 5Gi
