@@ -1,0 +1,43 @@
+# Default values for kube-oidc-proxy
+replicaCount: 1
+
+image:
+  repository: unbindapp/kube-oidc-proxy
+  tag: master-13812109543
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: "kube-oidc-proxy"
+
+oidc:
+  issuerUrl: "https://dex.unbind.app"
+  clientId: "unbind-api"
+  usernameClaim: "email"
+  groupsClaim: "groups"
+  tlsSecretName: "dex-tls"
+
+service:
+  type: ClusterIP
+  port: 443
+  targetPort: 443
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+rbac:
+  create: true
+  viewerCreate: true
+  viewerGroupName: "oidc:users"

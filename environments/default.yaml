@@ -22,6 +22,14 @@ components:
     enabled: true
   registry:
     enabled: true
+  dex:
+    enabled: true
+  ingressNginx:
+    enabled: true
+  certManager:
+    enabled: true
+  kubeOidcProxy:
+    enabled: true
 
 overrides:
   longhorn:
@@ -71,3 +79,84 @@ overrides:
       nodePort: 31571
     cleanup:
       threshold: 4Gi # This should be around 80% of the total size, this is for the auto cleanup job
+
+  certManager:
+    replicaCount: 2
+
+  dex:
+    version: "v2.42.0"
+    replicaCount: 2
+    # No need to specify issuer as it will be auto-generated from baseDomain
+    
+    # PostgreSQL configuration
+    postgres:
+      host: "pg-unbind.unbind-system"
+      port: 5432
+      database: "dex"
+      user: "dex_user"
+      # The secret name that contains the PostgreSQL password
+      secretName: "dex.pg-unbind.credentials.postgresql.acid.zalan.do"
+      ssl:
+        mode: "disable"
+    
+    # OAuth2 settings
+    oauth2:
+      skipApprovalScreen: true
+      alwaysIssueOfflineToken: true
+      responseTypes:
+        - code
+    
+    # Token expiry settings
+    expiry:
+      idTokens: "1h"
+      accessTokens: "1h"
+      refreshTokens:
+        validIfNotUsedFor: "336h"
+        disableRotation: true
+    
+    # Ingress settings - the host is now derived from baseDomain
+    ingress:
+      enabled: true
+      className: "nginx"
+      certIssuer: "letsencrypt-prod"
+    
+    # TLS settings
+    tls:
+      secretName: "dex-tls"
+    
+    # Resource settings
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  kubeOidcProxy:
+    replicaCount: 2
+    image:
+      repository: unbindapp/kube-oidc-proxy
+      tag: master-13812109543
+      pullPolicy: Always
+    oidc:
+      issuerUrl: https://dex.unbind.app  # Will be templated with baseDomain in helmfile
+      clientId: unbind-api
+      usernameClaim: email
+      groupsClaim: groups
+      tlsSecretName: dex-tls
+    service:
+      type: ClusterIP
+      port: 443
+      targetPort: 443
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    rbac:
+      create: true
+      viewerCreate: true
+      viewerGroupName: oidc:users

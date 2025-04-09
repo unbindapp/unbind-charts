@@ -10,6 +10,12 @@ repositories:
     url: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
   - name: grafana
     url: https://grafana.github.io/helm-charts 
+  - name: dex
+    url: https://charts.dexidp.io
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+  - name: jetstack
+    url: https://charts.jetstack.io
 
 # Environment values are loaded from environment-specific files
 environments:
@@ -256,6 +262,10 @@ releases:
             - app.kubernetes.io/instance
             - app.kubernetes.io/version
             - helm.sh/chart
+            # Unbind custom definition labels
+            - unbind/usd-name
+            - unbind/usd-version
+            - unbind/usd-category
 
     labels:
       component: postgres-operator
@@ -297,3 +307,273 @@ releases:
     labels:
       component: registry
       installed: {{ .Environment.Values | get "components.registry.enabled" true }}
+
+  # Added ingress-nginx as a daemonset
+  - name: ingress-nginx
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: ingress-nginx/ingress-nginx
+    version: 4.12.1
+    values:
+      - 
+        controller:
+          kind: DaemonSet
+          image:
+            registry: registry.k8s.io
+            image: ingress-nginx/controller
+            tag: "v1.12.1"
+            digest: sha256:d2fbc4ec70d8aa2050dd91a91506e998765e86c96f32cffb56c503c9c34eed5b
+          ingressClassResource:
+            name: nginx
+            default: true
+          admissionWebhooks:
+            enabled: true
+          service:
+            enabled: true
+            type: LoadBalancer
+            externalTrafficPolicy: Local
+          resources:
+            requests:
+              cpu: 100m
+              memory: 90Mi
+          config:
+            use-forwarded-headers: "true"
+            compute-full-forwarded-for: "true"
+            use-proxy-protocol: "false"
+        rbac:
+          create: true
+          scope: false
+        serviceAccount:
+          create: true
+    labels:
+      component: ingress
+      installed: {{ .Environment.Values | get "components.ingressNginx.enabled" true }}
+
+  # Added cert-manager for SSL certificates
+  - name: cert-manager
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: jetstack/cert-manager
+    version: 1.17.1
+    values:
+      - 
+        installCRDs: true
+        replicaCount: {{ .Environment.Values | get "overrides.certManager.replicaCount" 1 }}
+        ingressShim:
+          defaultIssuerName: letsencrypt-prod
+          defaultIssuerKind: ClusterIssuer
+          defaultIssuerGroup: cert-manager.io
+    labels:
+      component: cert-manager
+      installed: {{ .Environment.Values | get "components.certManager.enabled" true }}
+    
+    # Hook to create ClusterIssuer after cert-manager installation
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            cat <<EOF | kubectl apply -f -
+            apiVersion: cert-manager.io/v1
+            kind: ClusterIssuer
+            metadata:
+              name: letsencrypt-prod
+            spec:
+              acme:
+                server: https://acme-v02.api.letsencrypt.org/directory
+                email: "admin@{{ .Environment.Values.global.baseDomain }}"
+                privateKeySecretRef:
+                  name: letsencrypt-prod
+                solvers:
+                - http01:
+                    ingress:
+                      class: nginx
+            EOF
+
+  - name: dex
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: dex/dex
+    version: 0.23.0 
+    needs:
+      - postgres-operator
+      - database
+    hooks:
+      # Pre-install hook to generate secrets if they don't exist
+      - events: ["presync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            # Check if secret exists, create if not
+            if ! kubectl get secret -n {{ .Environment.Values | get "global.namespace" }} dex-client-secrets &> /dev/null; then
+              # Generate random secret
+              CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+              
+              # Create the secret
+              kubectl create secret generic dex-client-secrets \
+                --namespace={{ .Environment.Values | get "global.namespace" }} \
+                --from-literal=unbind-api-secret="${CLIENT_SECRET}"
+              
+              echo "Created new client secret for Dex"
+            else
+              echo "Dex client secrets already exist, using existing values"
+            fi
+    values:
+      - 
+        # Image configuration with dynamic version
+        image:
+          repository: ghcr.io/dexidp/dex
+          tag: "{{ .Environment.Values | get "overrides.dex.version" "v2.42.0" }}"
+          pullPolicy: IfNotPresent
+
+        # Dynamically set replica count
+        replicaCount: {{ .Environment.Values | get "overrides.dex.replicaCount" 2 }}
+
+        # Enable HTTPS endpoint
+        https:
+          enabled: true
+
+        # Use external secrets for the configuration
+        configSecret:
+          create: true
+
+        # Dex configuration
+        config:
+          issuer: {{ .Environment.Values | get "overrides.dex.issuer" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+          storage:
+            type: postgres
+            config:
+              host: {{ .Environment.Values | get "overrides.dex.postgres.host" (printf "pg-unbind.%s" .Environment.Values.global.namespace) }}
+              port: {{ .Environment.Values | get "overrides.dex.postgres.port" 5432 }}
+              database: {{ .Environment.Values | get "overrides.dex.postgres.database" "dex" }}
+              user: {{ .Environment.Values | get "overrides.dex.postgres.user" "dex_user" }}
+              passwordEnv: POSTGRES_PASSWORD
+              ssl:
+                mode: {{ .Environment.Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
+          web:
+            https: 0.0.0.0:5556
+            tlsCert: /etc/dex/tls/tls.crt
+            tlsKey: /etc/dex/tls/tls.key
+          issuers: {{ .Environment.Values | get "overrides.dex.issuers" (list (printf "https://dex.%s" .Environment.Values.global.baseDomain) (printf "https://dex.%s.svc.cluster.local:5556" .Environment.Values.global.namespace)) | toYaml | nindent 12 }}
+          oauth2:
+            skipApprovalScreen: {{ .Environment.Values | get "overrides.dex.oauth2.skipApprovalScreen" true }}
+            responseTypes: {{ .Environment.Values | get "overrides.dex.oauth2.responseTypes" (list "code") | toYaml | nindent 14 }}
+            alwaysIssueOfflineToken: {{ .Environment.Values | get "overrides.dex.oauth2.alwaysIssueOfflineToken" true }}
+          expiry:
+            idTokens: {{ .Environment.Values | get "overrides.dex.expiry.idTokens" "1h" }}
+            accessTokens: {{ .Environment.Values | get "overrides.dex.expiry.accessTokens" "1h" }}
+            refreshTokens:
+              validIfNotUsedFor: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.validIfNotUsedFor" "336h" }}
+              disableRotation: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.disableRotation" true }}
+          connectors: {{ .Environment.Values | get "overrides.dex.connectors" (list (dict "type" "oidc" "id" "unbind-oidc" "name" "Unbind Built-in OIDC Provider" "config" (dict "issuer" (printf "https://auth.%s" .Environment.Values.global.baseDomain) "clientID" "dex-client" "clientSecret" "dex-secret" "redirectURI" (printf "https://dex.%s/callback" .Environment.Values.global.baseDomain) "scopes" (list "openid" "profile" "email" "offline_access" "groups") "insecureEnableGroups" true "discoveryURL" (printf "https://auth.%s/.well-known/openid-configuration" .Environment.Values.global.baseDomain) "userIDKey" "jti" "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")))) | toYaml | nindent 12 }}
+          staticClients:
+            - id: unbind-api
+              secretEnv: CLIENT_SECRET
+              name: Unbind API
+              redirectURIs: 
+                - {{ printf "https://unbind.%s/api/auth/callback/dex" .Environment.Values.global.baseDomain }}
+                - {{ printf "https://unbind-api.%s/auth/callback" .Environment.Values.global.baseDomain }}
+                - http://localhost:3000/api/auth/callback/dex
+              responseTypes: {{ .Environment.Values | get "overrides.dex.staticClients.unbindApi.responseTypes" (list "code") | toYaml | nindent 16 }}
+
+        # Environment variables to pull secrets from Kubernetes secrets
+        envVars:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Environment.Values | get "overrides.dex.postgres.secretName" "dex.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                key: password
+          - name: CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: dex-client-secrets
+                key: unbind-api-secret
+
+        # Volume configuration for TLS certificates
+        volumes:
+          - name: tls
+            secret:
+              secretName: {{ .Environment.Values | get "overrides.dex.tls.secretName" "dex-tls" }}
+              defaultMode: 420
+
+        volumeMounts:
+          - name: tls
+            mountPath: /etc/dex/tls
+            readOnly: true
+
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+
+        # Configure resources based on environment values
+        resources:
+          requests:
+            cpu: {{ .Environment.Values | get "overrides.dex.resources.requests.cpu" "100m" }}
+            memory: {{ .Environment.Values | get "overrides.dex.resources.requests.memory" "128Mi" }}
+          limits:
+            cpu: {{ .Environment.Values | get "overrides.dex.resources.limits.cpu" "200m" }}
+            memory: {{ .Environment.Values | get "overrides.dex.resources.limits.memory" "256Mi" }}
+
+        # Ingress configuration
+        ingress:
+          enabled: {{ .Environment.Values | get "overrides.dex.ingress.enabled" true }}
+          className: {{ .Environment.Values | get "overrides.dex.ingress.className" "nginx" }}
+          annotations:
+            cert-manager.io/cluster-issuer: {{ .Environment.Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          hosts:
+            - host: {{ .Environment.Values | get "overrides.dex.host" (printf "dex.%s" .Environment.Values.global.baseDomain) }}
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls:
+            - secretName: {{ .Environment.Values | get "overrides.dex.tls.secretName" "dex-tls" }}
+              hosts:
+                - {{ .Environment.Values | get "overrides.dex.host" (printf "dex.%s" .Environment.Values.global.baseDomain) }}
+
+    labels:
+      component: dex
+      installed: {{ .Environment.Values | get "components.dex.enabled" true }}
+
+  - name: kube-oidc-proxy
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: ./charts/kube-oidc-proxy
+    needs:
+      - dex
+    values:
+      - 
+        replicaCount: {{ .Environment.Values | get "overrides.kubeOidcProxy.replicaCount" 2 }}
+        image:
+          repository: {{ .Environment.Values | get "overrides.kubeOidcProxy.image.repository" "unbindapp/kube-oidc-proxy" }}
+          tag: {{ .Environment.Values | get "overrides.kubeOidcProxy.image.tag" "master-13812109543" }}
+          pullPolicy: {{ .Environment.Values | get "overrides.kubeOidcProxy.image.pullPolicy" "IfNotPresent" }}
+        
+        oidc:
+          issuerUrl: {{ .Environment.Values | get "overrides.kubeOidcProxy.oidc.issuerUrl" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+          clientId: {{ .Environment.Values | get "overrides.kubeOidcProxy.oidc.clientId" "unbind-api" }}
+          usernameClaim: {{ .Environment.Values | get "overrides.kubeOidcProxy.oidc.usernameClaim" "email" }}
+          groupsClaim: {{ .Environment.Values | get "overrides.kubeOidcProxy.oidc.groupsClaim" "groups" }}
+          tlsSecretName: {{ .Environment.Values | get "overrides.kubeOidcProxy.oidc.tlsSecretName" "dex-tls" }}
+        
+        service:
+          type: {{ .Environment.Values | get "overrides.kubeOidcProxy.service.type" "ClusterIP" }}
+          port: {{ .Environment.Values | get "overrides.kubeOidcProxy.service.port" 443 }}
+          targetPort: {{ .Environment.Values | get "overrides.kubeOidcProxy.service.targetPort" 443 }}
+        
+        resources:
+          requests:
+            cpu: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.requests.cpu" "100m" }}
+            memory: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.requests.memory" "128Mi" }}
+          limits:
+            cpu: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.limits.cpu" "300m" }}
+            memory: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.limits.memory" "256Mi" }}
+        
+        rbac:
+          create: {{ .Environment.Values | get "overrides.kubeOidcProxy.rbac.create" true }}
+          viewerCreate: {{ .Environment.Values | get "overrides.kubeOidcProxy.rbac.viewerCreate" true }}
+          viewerGroupName: {{ .Environment.Values | get "overrides.kubeOidcProxy.rbac.viewerGroupName" "oidc:users" }}
+    labels:
+      component: auth
+      installed: {{ .Environment.Values | get "components.kubeOidcProxy.enabled" true }}
