@@ -552,18 +552,6 @@ releases:
                 name: dex-client-secrets
                 key: connector-oidc-secret
 
-        # Volume configuration for TLS certificates
-        volumes:
-          - name: tls
-            secret:
-              secretName: {{ .Environment.Values | get "overrides.dex.tls.secretName" "dex-tls" }}
-              defaultMode: 420
-
-        volumeMounts:
-          - name: tls
-            mountPath: /etc/dex/tls
-            readOnly: true
-
         # Security context
         securityContext:
           runAsNonRoot: true
@@ -588,7 +576,7 @@ releases:
                 - path: /
                   pathType: Prefix
           tls:
-            - secretName: {{ .Environment.Values | get "overrides.dex.tls.secretName" "dex-tls" }}
+            - secretName: dex-tls
               hosts:
                 - {{ .Environment.Values | get "overrides.dex.host" (printf "dex.%s" .Environment.Values.global.baseDomain) }}
 

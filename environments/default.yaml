@@ -118,10 +118,7 @@ overrides:
       enabled: true
       className: "nginx"
       certIssuer: "letsencrypt-prod"
-    
-    # TLS settings
-    tls:
-      secretName: "dex-tls"
+  
     
     # Resource settings
     resources:
