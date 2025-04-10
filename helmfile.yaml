@@ -55,6 +55,11 @@ releases:
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: prometheus-community/kube-prometheus-stack
     version: 70.4.0 
+    hooks:
+    - events: ["presync"]
+      showlogs: true
+      command: "sh"
+      args: ["-c", "kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/* && sleep 10"]
     values:
       - values/kube-prometheus-stack.yaml
       - prometheus:
