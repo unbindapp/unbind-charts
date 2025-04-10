@@ -58,16 +58,15 @@ releases:
     hooks:
       - events: ["presync"]
         showlogs: true
-        command: "sh"
-        args: 
-          - -c
+        command: "/bin/sh"
+        args:
+          - "-c"
           - |
+            echo "Installing Prometheus Operator CRDs..."
             for CRD in alertmanagerconfigs alertmanagers podmonitors probes prometheuses prometheusrules servicemonitors thanosrulers; do
               kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.60.0/example/prometheus-operator-crd/monitoring.coreos.com_${CRD}.yaml
             done
-
-            # !TODO https://raw.githubusercontent.com/zalando/postgres-operator/refs/heads/master/manifests/operatorconfiguration.crd.yaml
-            # https://raw.githubusercontent.com/zalando/postgres-operator/refs/heads/master/manifests/postgresql.crd.yaml
+            echo "Prometheus Operator CRDs installed"
     values:
       - values/kube-prometheus-stack.yaml
       - prometheus:
@@ -264,6 +263,17 @@ releases:
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: postgres-operator/postgres-operator
     version: 1.14.0
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            echo "Installing Postgres Operator CRDs..."
+            kubectl apply -f https://raw.githubusercontent.com/zalando/postgres-operator/refs/tags/v1.14.0/manifests/operatorconfiguration.crd.yaml
+            kubectl apply -f https://raw.githubusercontent.com/zalando/postgres-operator/refs/tags/v1.14.0/manifests/postgresql.crd.yaml
+            echo "Postgres Operator CRDs installed"
     values:
       - 
         configGeneral:
