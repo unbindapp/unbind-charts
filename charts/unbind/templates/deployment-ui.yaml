@@ -1,0 +1,55 @@
+{{- if .Values.ui.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.ui.name }}-deployment
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.ui.name }}
+    {{- include "unbind.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ui.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.ui.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.ui.name }}
+        {{- include "unbind.ui.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "unbind.serviceAccountName" . }}
+      containers:
+        - name: {{ .Values.ui.name }}
+          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag }}"
+          imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.ui.containerPort }}
+          {{- if .Values.ui.env }}
+          env:
+            {{- toYaml .Values.ui.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.ui.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.ui.containerPort }}
+            initialDelaySeconds: {{ .Values.ui.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.livenessProbe.periodSeconds }}
+          {{- end }}
+          {{- if .Values.ui.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.ui.containerPort }}
+            initialDelaySeconds: {{ .Values.ui.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.readinessProbe.periodSeconds }}
+          {{- end }}
+{{- end }}

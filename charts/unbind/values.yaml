@@ -1,0 +1,260 @@
+# Global settings
+global:
+  namespace: "unbind-system"
+  baseDomain: "example.com"
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  name: unbind-api-sa
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+
+# Builder configuration
+builder:
+  # RBAC configuration for builder
+  rbac:
+    create: true
+    clusterRoleName: "app-crd-creator"
+    clusterRoleBindingName: "app-crd-creator-binding"
+  # ServiceAccount for builder
+  serviceAccount:
+    create: true
+    name: "builder-serviceaccount"
+    annotations: {}
+
+# Database configuration
+database:
+  host: "pg-unbind"
+  port: 5432
+  database: "unbind"
+  existingSecret: "unbind-db-credentials"
+  userKey: "username"
+  passwordKey: "password"
+
+# Combined Ingress
+combinedIngress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/eventsource: "true"
+    nginx.ingress.kubernetes.io/add-base-url: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "unbind"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "unbind-session"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+  host: "unbind.example.com"
+  tls:
+    enabled: true
+    secretName: "unbind-app-tls"
+
+# UI Configuration
+ui:
+  enabled: true
+  name: unbind-ui
+  image:
+    repository: "unbindapp/unbind-ui"
+    tag: "latest"
+    pullPolicy: "Always"
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  containerPort: 3000
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: false  # We're using the combined ingress
+  env:
+    - name: AUTH_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: unbind-authjs-secrets
+          key: auth-secret
+    - name: AUTH_URL
+      value: "https://unbind.example.com/api-internal/auth"
+    - name: DEX_CLIENT_ID
+      value: "unbind-api"
+    - name: DEX_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dex-client-secrets
+          key: unbind-api-secret
+    - name: DEX_ISSUER
+      value: "https://dex.example.com"
+    - name: NEXT_PUBLIC_UNBIND_API_URL
+      value: "https://unbind.example.com/api"
+    - name: SITE_URL
+      value: "https://unbind.example.com"
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# API Configuration
+api:
+  enabled: true
+  name: unbind-api
+  image:
+    repository: "unbindapp/unbind-api"
+    tag: "latest"
+    pullPolicy: "Always"
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
+    limits:
+      cpu: "500m"
+      memory: "2Gi"
+  containerPort: 8089
+  service:
+    type: ClusterIP
+    port: 8089
+  ingress:
+    enabled: false  # We're using the combined ingress
+  command: ["/app/api"]
+  env:
+    - name: EXTERNAL_API_URL
+      value: "https://unbind.example.com/api"
+    - name: EXTERNAL_WILDCARD_BASE_URL
+      value: "https://example.com"
+    - name: UNBIND_SERVICE_DEF_VERSION
+      value: "v0.1.20"
+    - name: POSTGRES_HOST
+      value: "pg-unbind"
+    - name: POSTGRES_PORT
+      value: "5432"
+    - name: POSTGRES_USER
+      value: "unbind"
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
+          key: password
+    - name: POSTGRES_DB
+      value: "unbind"
+    - name: VALKEY_URL
+      value: valkey-headless.unbind-system:6379
+    - name: DEX_ISSUER_URL
+      value: "https://dex.example.com"
+    - name: DEX_ISSUER_URL_EXTERNAL
+      value: "https://dex.example.com"
+    - name: DEX_CLIENT_ID
+      value: "unbind-api"
+    - name: DEX_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dex-client-secrets
+          key: unbind-api-secret
+    - name: KUBE_PROXY_URL
+      value: "https://kube-oidc-proxy.unbind-system.svc.cluster.local:443"
+    - name: BUILD_IMAGER
+      value: unbindapp/unbind-builder:latest
+    - name: BUILDER_NAMESPACE
+      value: unbind-system
+    - name: CONTAINER_REGISTRY_HOST
+      value: docker-registry.unbind-system:5000
+    - name: CONTAINER_REGISTRY_PASSWORD
+      value: TODO
+    - name: BUILDKIT_HOST
+      value: tcp://buildkitd.unbind-system:1234
+    - name: LOKI_ENDPOINT
+      value: http://loki-unbind-gateway.unbind-system.svc.cluster.local
+    - name: PROMETHEUS_ENDPOINT
+      value: http://kube-prometheus-stack-prometheus.unbind-system:9090
+  livenessProbe:
+    enabled: true
+    path: "/api/healthz"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    enabled: true
+    path: "/api/healthz"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Auth Configuration
+auth:
+  enabled: true
+  name: unbind-auth
+  image:
+    repository: "unbindapp/unbind-auth"
+    tag: "latest"
+    pullPolicy: "Always"
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "200Mi"
+    limits:
+      cpu: "500m"
+      memory: "2Gi"
+  containerPort: 8090
+  service:
+    type: ClusterIP
+    port: 8090
+  ingress:
+    enabled: false  # We're using the combined ingress
+  command: ["/app/oauth2server"]
+  env:
+    - name: EXTERNAL_OAUTH2_URL
+      value: "https://unbind.example.com/oauth2/api"
+    - name: POSTGRES_HOST
+      value: "pg-unbind"
+    - name: POSTGRES_PORT
+      value: "5432"
+    - name: POSTGRES_USER
+      value: "unbind"
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
+          key: password
+    - name: DEX_ISSUER_URL
+      value: "https://dex.example.com"
+    - name: DEX_ISSUER_URL_EXTERNAL
+      value: "https://dex.example.com"
+    - name: DEX_CLIENT_ID
+      value: "unbind-api"
+    - name: DEX_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dex-client-secrets
+          key: unbind-api-secret
+    - name: DEX_CONNECTOR_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dex-client-secrets
+          key: connector-oidc-secret
+    - name: VALKEY_URL
+      value: valkey-headless.unbind-system:6379
+  livenessProbe:
+    enabled: true
+    path: "/healthz"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    enabled: true
+    path: "/healthz"
+    initialDelaySeconds: 30
+    periodSeconds: 10

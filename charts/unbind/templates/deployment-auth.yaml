@@ -1,0 +1,57 @@
+{{- if .Values.auth.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.auth.name }}-deployment
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.auth.name }}
+    {{- include "unbind.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.auth.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.auth.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.auth.name }}
+        {{- include "unbind.auth.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Values.auth.name }}
+          image: "{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
+          imagePullPolicy: {{ .Values.auth.image.pullPolicy }}
+          {{- if .Values.auth.command }}
+          command: {{ .Values.auth.command }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.auth.resources | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.auth.containerPort }}
+          {{- if .Values.auth.env }}
+          env:
+            {{- toYaml .Values.auth.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.auth.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.auth.livenessProbe.path }}
+              port: {{ .Values.auth.containerPort }}
+            initialDelaySeconds: {{ .Values.auth.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.auth.livenessProbe.periodSeconds }}
+          {{- end }}
+          {{- if .Values.auth.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.auth.readinessProbe.path }}
+              port: {{ .Values.auth.containerPort }}
+            initialDelaySeconds: {{ .Values.auth.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.auth.readinessProbe.periodSeconds }}
+          {{- end }}
+{{- end }}

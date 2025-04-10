@@ -16,6 +16,8 @@ repositories:
     url: https://kubernetes.github.io/ingress-nginx
   - name: jetstack
     url: https://charts.jetstack.io
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
 
 # Environment values are loaded from environment-specific files
 environments:
@@ -291,6 +293,28 @@ releases:
       component: database
       installed: {{ .Environment.Values | get "components.database.enabled" true }}
 
+  - name: valkey
+    namespace: 'unbind-system'
+    chart: bitnami/valkey
+    version: 3.0.1
+    values:
+      - architecture: standalone
+        auth:
+          enabled: false
+        commonConfiguration: |-
+          appendonly yes
+          protected-mode no
+        persistence:
+          enabled: true
+          size: 1Gi
+        primary:
+          replicaCount: 1
+        replica:
+          replicaCount: 1
+    labels:
+      component: valkey
+      installed: {{ .Environment.Values | get "components.valkey.enabled" true }}
+
   - name: registry
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: ./charts/registry
@@ -407,15 +431,17 @@ releases:
           - |
             # Check if secret exists, create if not
             if ! kubectl get secret -n {{ .Environment.Values | get "global.namespace" }} dex-client-secrets &> /dev/null; then
-              # Generate random secret
+              # Generate random secrets
               CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+              CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               
               # Create the secret
               kubectl create secret generic dex-client-secrets \
                 --namespace={{ .Environment.Values | get "global.namespace" }} \
-                --from-literal=unbind-api-secret="${CLIENT_SECRET}"
+                --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
+                --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
               
-              echo "Created new client secret for Dex"
+              echo "Created new client and connector secrets for Dex"
             else
               echo "Dex client secrets already exist, using existing values"
             fi
@@ -466,7 +492,7 @@ releases:
             refreshTokens:
               validIfNotUsedFor: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.validIfNotUsedFor" "336h" }}
               disableRotation: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.disableRotation" true }}
-          connectors: {{ .Environment.Values | get "overrides.dex.connectors" (list (dict "type" "oidc" "id" "unbind-oidc" "name" "Unbind Built-in OIDC Provider" "config" (dict "issuer" (printf "https://auth.%s" .Environment.Values.global.baseDomain) "clientID" "dex-client" "clientSecret" "dex-secret" "redirectURI" (printf "https://dex.%s/callback" .Environment.Values.global.baseDomain) "scopes" (list "openid" "profile" "email" "offline_access" "groups") "insecureEnableGroups" true "discoveryURL" (printf "https://auth.%s/.well-known/openid-configuration" .Environment.Values.global.baseDomain) "userIDKey" "jti" "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")))) | toYaml | nindent 12 }}
+          connectors: {{ .Environment.Values | get "overrides.dex.connectors" (list (dict "type" "oidc" "id" "unbind-oidc" "name" "Unbind Built-in OIDC Provider" "config" (dict "issuer" (printf "https://unbind.%s/oauth2/api" .Environment.Values.global.baseDomain) "clientID" "dex-client" "clientSecretEnv" "CONNECTOR_SECRET" "redirectURI" (printf "https://dex.%s/callback" .Environment.Values.global.baseDomain) "scopes" (list "openid" "profile" "email" "offline_access" "groups") "insecureEnableGroups" true "discoveryURL" (printf "https://unbind.%s/oauth2/api/.well-known/openid-configuration" .Environment.Values.global.baseDomain) "userIDKey" "jti" "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")))) | toYaml | nindent 12 }}
           staticClients:
             - id: unbind-api
               secretEnv: CLIENT_SECRET
@@ -489,6 +515,11 @@ releases:
               secretKeyRef:
                 name: dex-client-secrets
                 key: unbind-api-secret
+          - name: CONNECTOR_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: dex-client-secrets
+                key: connector-oidc-secret
 
         # Volume configuration for TLS certificates
         volumes:
@@ -591,4 +622,305 @@ releases:
               tag: {{ .Environment.Values | get "overrides.unbind.operator.tag" "latest" }}
     labels:
       component: unbind-operator
+      installed: true
+
+  # Unbind App section of helmfile.yaml
+  - name: unbind-app
+    namespace: '{{ .Environment.Values.global.namespace }}'
+    chart: ./charts/unbind  # Local path to your chart
+    needs:
+      - dex
+      - valkey
+      - database
+      - buildkit
+      - kube-oidc-proxy
+      - registry
+    hooks:
+      # Pre-install hook to generate secrets if they don't exist
+      - events: ["presync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            # Check if auth secret exists, create if not
+            if ! kubectl get secret -n {{ .Environment.Values.global.namespace }} unbind-authjs-secrets &> /dev/null; then
+              # Generate random secrets
+              AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+              
+              # Create the secret
+              kubectl create secret generic unbind-authjs-secrets \
+                --namespace={{ .Environment.Values.global.namespace }} \
+                --from-literal=auth-secret="${AUTH_SECRET}"
+              
+              echo "Created new auth secret for Next.js"
+            else
+              echo "Auth secret already exists"
+            fi
+            
+            # Check if dex client secrets exist, create if not
+            if ! kubectl get secret -n {{ .Environment.Values.global.namespace }} dex-client-secrets &> /dev/null; then
+              # Generate random secrets
+              CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+              CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+              
+              # Create the secret
+              kubectl create secret generic dex-client-secrets \
+                --namespace={{ .Environment.Values.global.namespace }} \
+                --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
+                --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
+              
+              echo "Created new client and connector secrets for Dex"
+            else
+              echo "Dex client secrets already exist"
+            fi
+    values:
+      # Global values
+      - global:
+          namespace: '{{ .Environment.Values.global.namespace }}'
+          baseDomain: '{{ .Environment.Values.global.baseDomain }}'
+      
+      # Combined Ingress with proper configuration
+      - combinedIngress:
+          enabled: true
+          annotations:
+            kubernetes.io/ingress.class: "nginx"
+            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            nginx.ingress.kubernetes.io/eventsource: "true"
+            nginx.ingress.kubernetes.io/add-base-url: "true"
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/websocket-services: "unbind"
+            nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+            nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
+            nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+            nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
+            nginx.ingress.kubernetes.io/affinity: "cookie"
+            nginx.ingress.kubernetes.io/session-cookie-name: "unbind-session"
+            nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+            nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+          host: {{ printf "unbind.%s" .Environment.Values.global.baseDomain }}
+          tls:
+            enabled: true
+            secretName: "unbind-app-tls"
+      
+      # UI Configuration
+      - ui:
+          enabled: true
+          name: unbind-ui
+          image:
+            repository: {{ .Environment.Values | get "overrides.unbind.ui.repository" "unbindapp/unbind-ui" }}
+            tag: {{ .Environment.Values | get "overrides.unbind.ui.tag" "latest" }}
+            pullPolicy: {{ .Environment.Values | get "overrides.unbind.ui.pullPolicy" "Always" }}
+          replicaCount: {{ .Environment.Values | get "overrides.unbind.ui.replicaCount" 2 }}
+          resources:
+            requests:
+              cpu: {{ .Environment.Values | get "overrides.unbind.ui.resources.requests.cpu" "100m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.ui.resources.requests.memory" "200Mi" }}
+            limits:
+              cpu: {{ .Environment.Values | get "overrides.unbind.ui.resources.limits.cpu" "500m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.ui.resources.limits.memory" "1Gi" }}
+          containerPort: 3000
+          service:
+            type: ClusterIP
+            port: 3000
+          ingress:
+            enabled: false  # Using the combined ingress
+          env:
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: unbind-authjs-secrets
+                  key: auth-secret
+            - name: AUTH_URL
+              value: {{ printf "https://unbind.%s/api-internal/auth" .Environment.Values.global.baseDomain }}
+            - name: DEX_CLIENT_ID
+              value: {{ .Environment.Values | get "overrides.unbind.ui.dex.clientId" "unbind-api" }}
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.ui.dex.secretName" "dex-client-secrets" }}
+                  key: {{ .Environment.Values | get "overrides.unbind.ui.dex.secretKey" "unbind-api-secret" }}
+            - name: DEX_ISSUER
+              value: {{ printf "https://dex.%s" .Environment.Values.global.baseDomain }}
+            - name: NEXT_PUBLIC_UNBIND_API_URL
+              value: {{ printf "https://unbind.%s/api" .Environment.Values.global.baseDomain }}
+            - name: SITE_URL
+              value: {{ printf "https://unbind.%s" .Environment.Values.global.baseDomain }}
+          livenessProbe:
+            enabled: true
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.ui.livenessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.ui.livenessProbe.periodSeconds" 10 }}
+          readinessProbe:
+            enabled: true
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.ui.readinessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.ui.readinessProbe.periodSeconds" 10 }}
+      
+      # API Configuration
+      - api:
+          enabled: true
+          name: unbind-api
+          image:
+            repository: {{ .Environment.Values | get "overrides.unbind.api.repository" "unbindapp/unbind-api" }}
+            tag: {{ .Environment.Values | get "overrides.unbind.api.tag" "latest" }}
+            pullPolicy: {{ .Environment.Values | get "overrides.unbind.api.pullPolicy" "Always" }}
+          replicaCount: {{ .Environment.Values | get "overrides.unbind.api.replicaCount" 2 }}
+          resources:
+            requests:
+              cpu: {{ .Environment.Values | get "overrides.unbind.api.resources.requests.cpu" "100m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.api.resources.requests.memory" "200Mi" }}
+            limits:
+              cpu: {{ .Environment.Values | get "overrides.unbind.api.resources.limits.cpu" "500m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.api.resources.limits.memory" "2Gi" }}
+          containerPort: 8089
+          service:
+            type: ClusterIP
+            port: 8089
+          ingress:
+            enabled: false  # Using the combined ingress
+          command: ["/app/api"]
+          env:
+            - name: EXTERNAL_API_URL
+              value: {{ printf "https://unbind.%s/api" .Environment.Values.global.baseDomain }}
+            - name: EXTERNAL_WILDCARD_BASE_URL
+              value: {{ printf "https://%s" .Environment.Values.global.baseDomain }}
+            - name: UNBIND_SERVICE_DEF_VERSION
+              value: {{ .Environment.Values | get "overrides.unbind.api.serviceDefVersion" "v0.1.20" }}
+            - name: POSTGRES_HOST
+              value: {{ .Environment.Values | get "overrides.unbind.api.database.host" (printf "pg-unbind.%s" .Environment.Values.global.namespace) }}
+            - name: POSTGRES_PORT
+              value: {{ .Environment.Values | get "overrides.unbind.api.database.port" "5432" | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Environment.Values | get "overrides.unbind.api.database.user" "unbind" }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.api.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                  key: password
+            - name: POSTGRES_DB
+              value: {{ .Environment.Values | get "overrides.unbind.api.database.name" "unbind" }}
+            - name: VALKEY_URL
+              value: {{ .Environment.Values | get "overrides.unbind.api.valkey.url" (printf "valkey-headless.%s:6379" .Environment.Values.global.namespace) }}
+            - name: DEX_ISSUER_URL
+              value: {{ .Environment.Values | get "overrides.unbind.api.dex.issuerUrl" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+            - name: DEX_ISSUER_URL_EXTERNAL
+              value: {{ .Environment.Values | get "overrides.unbind.api.dex.issuerUrlExternal" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+            - name: DEX_CLIENT_ID
+              value: {{ .Environment.Values | get "overrides.unbind.api.dex.clientId" "unbind-api" }}
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.api.dex.secretName" "dex-client-secrets" }}
+                  key: {{ .Environment.Values | get "overrides.unbind.api.dex.secretKey" "unbind-api-secret" }}
+            - name: KUBE_PROXY_URL
+              value: {{ .Environment.Values | get "overrides.unbind.api.kubeProxyUrl" (printf "https://kube-oidc-proxy.%s.svc.cluster.local:443" .Environment.Values.global.namespace) }}
+            - name: BUILD_IMAGER
+              value: {{ .Environment.Values | get "overrides.unbind.api.buildImager" "unbindapp/unbind-builder:latest" }}
+            - name: BUILDER_NAMESPACE
+              value: {{ .Environment.Values.global.namespace }}
+            - name: CONTAINER_REGISTRY_HOST
+              value: {{ .Environment.Values | get "overrides.unbind.api.registry.host" (printf "docker-registry.%s:5000" .Environment.Values.global.namespace) }}
+            - name: CONTAINER_REGISTRY_PASSWORD
+              value: {{ .Environment.Values | get "overrides.unbind.api.registry.password" "TODO" }}
+            - name: BUILDKIT_HOST
+              value: {{ .Environment.Values | get "overrides.unbind.api.buildkit.host" (printf "tcp://buildkitd.%s:1234" .Environment.Values.global.namespace) }}
+            - name: LOKI_ENDPOINT
+              value: {{ .Environment.Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-unbind-gateway.%s.svc.cluster.local" .Environment.Values.global.namespace) }}
+            - name: PROMETHEUS_ENDPOINT
+              value: {{ .Environment.Values | get "overrides.unbind.api.prometheus.endpoint" (printf "http://kube-prometheus-stack-prometheus.%s:9090" .Environment.Values.global.namespace) }}
+          livenessProbe:
+            enabled: true
+            path: "/api/healthz"
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.api.livenessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.api.livenessProbe.periodSeconds" 10 }}
+          readinessProbe:
+            enabled: true
+            path: "/api/healthz"
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.api.readinessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.api.readinessProbe.periodSeconds" 10 }}
+      
+      # Auth Service Configuration
+      - auth:
+          enabled: true
+          name: unbind-auth
+          image:
+            repository: {{ .Environment.Values | get "overrides.unbind.auth.repository" "unbindapp/unbind-api" }}
+            tag: {{ .Environment.Values | get "overrides.unbind.auth.tag" "latest" }}
+            pullPolicy: {{ .Environment.Values | get "overrides.unbind.auth.pullPolicy" "Always" }}
+          replicaCount: {{ .Environment.Values | get "overrides.unbind.auth.replicaCount" 2 }}
+          resources:
+            requests:
+              cpu: {{ .Environment.Values | get "overrides.unbind.auth.resources.requests.cpu" "100m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.auth.resources.requests.memory" "200Mi" }}
+            limits:
+              cpu: {{ .Environment.Values | get "overrides.unbind.auth.resources.limits.cpu" "500m" }}
+              memory: {{ .Environment.Values | get "overrides.unbind.auth.resources.limits.memory" "2Gi" }}
+          containerPort: 8090
+          service:
+            type: ClusterIP
+            port: 8090
+          ingress:
+            enabled: false  # Using the combined ingress
+          command: ["/app/oauth2server"]
+          env:
+            - name: EXTERNAL_OAUTH2_URL
+              value: {{ printf "https://unbind.%s/oauth2/api" .Environment.Values.global.baseDomain }}
+            - name: POSTGRES_HOST
+              value: {{ .Environment.Values | get "overrides.unbind.auth.database.host" (printf "pg-unbind.%s" .Environment.Values.global.namespace) }}
+            - name: POSTGRES_PORT
+              value: {{ .Environment.Values | get "overrides.unbind.auth.database.port" "5432" | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Environment.Values | get "overrides.unbind.auth.database.user" "unbind" }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.auth.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                  key: password
+            - name: DEX_ISSUER_URL
+              value: {{ .Environment.Values | get "overrides.unbind.auth.dex.issuerUrl" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+            - name: DEX_ISSUER_URL_EXTERNAL
+              value: {{ .Environment.Values | get "overrides.unbind.auth.dex.issuerUrlExternal" (printf "https://dex.%s" .Environment.Values.global.baseDomain) }}
+            - name: DEX_CLIENT_ID
+              value: {{ .Environment.Values | get "overrides.unbind.auth.dex.clientId" "unbind-api" }}
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
+                  key: {{ .Environment.Values | get "overrides.unbind.auth.dex.secretKey" "unbind-api-secret" }}
+            - name: DEX_CONNECTOR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Environment.Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
+                  key: connector-oidc-secret
+            - name: VALKEY_URL
+              value: {{ .Environment.Values | get "overrides.unbind.auth.valkey.url" (printf "valkey-headless.%s:6379" .Environment.Values.global.namespace) }}
+          livenessProbe:
+            enabled: true
+            path: "/healthz"
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.auth.livenessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.auth.livenessProbe.periodSeconds" 10 }}
+          readinessProbe:
+            enabled: true
+            path: "/healthz"
+            initialDelaySeconds: {{ .Environment.Values | get "overrides.unbind.auth.readinessProbe.initialDelaySeconds" 30 }}
+            periodSeconds: {{ .Environment.Values | get "overrides.unbind.auth.readinessProbe.periodSeconds" 10 }}
+      
+      # Service Account and RBAC
+      - serviceAccount:
+          create: true
+          name: unbind-api-sa
+          annotations: {}
+      - rbac:
+          create: true
+      - builder:
+          rbac:
+            create: true
+            clusterRoleName: "app-crd-creator"
+            clusterRoleBindingName: "app-crd-creator-binding"
+          serviceAccount:
+            create: true
+            name: "builder-serviceaccount"
+            annotations: {}
+
+    labels:
+      component: unbind-app
       installed: true
