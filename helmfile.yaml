@@ -245,8 +245,7 @@ releases:
       - 
         resources: {}
         replicaCount: {{ .Environment.Values | get "overrides.buildkitd.replicas" }}
-        image:
-          repository: {{ .Environment.Values | get "overrides.buildkitd.image" }}
+        image: {{ .Environment.Values | get "overrides.buildkitd.image" }}
         registries:
           - url: {{ .Environment.Values | get "overrides.buildkitd.registry" (printf "docker-registry.%s:5000" (.Environment.Values | get "global.namespace")) }}
             http: true
