@@ -192,10 +192,11 @@ releases:
           tableManager:
             retention_deletes_enabled: true
             retention_period: {{ .Environment.Values | get "overrides.loki.retentionPeriod" }}
-          resultsCache:
-            enabled: false
-          chunksCache:
-            enabled: false
+
+        resultsCache:
+          enabled: false
+        chunksCache:
+          enabled: false
 
         minio:
           enabled: true
