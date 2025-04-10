@@ -92,7 +92,7 @@ overrides:
       host: "pg-unbind.unbind-system"
       port: 5432
       database: "dex"
-      user: "dex_user"
+      user: "dex"
       # The secret name that contains the PostgreSQL password
       secretName: "dex.pg-unbind.credentials.postgresql.acid.zalan.do"
       ssl:

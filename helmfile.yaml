@@ -449,6 +449,7 @@ releases:
     namespace: '{{ .Environment.Values | get "global.namespace" }}'
     chart: dex/dex
     version: 0.23.0 
+    wait: false
     needs:
       - postgres-operator
       - database
@@ -504,7 +505,7 @@ releases:
               host: {{ .Environment.Values | get "overrides.dex.postgres.host" (printf "pg-unbind.%s" .Environment.Values.global.namespace) }}
               port: {{ .Environment.Values | get "overrides.dex.postgres.port" 5432 }}
               database: {{ .Environment.Values | get "overrides.dex.postgres.database" "dex" }}
-              user: {{ .Environment.Values | get "overrides.dex.postgres.user" "dex_user" }}
+              user: {{ .Environment.Values | get "overrides.dex.postgres.user" "dex" }}
               passwordEnv: POSTGRES_PASSWORD
               ssl:
                 mode: {{ .Environment.Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
