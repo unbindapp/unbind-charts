@@ -195,7 +195,14 @@ releases:
 
         resultsCache:
           enabled: false
+
         chunksCache:
+          enabled: false
+
+        lokiCanary:
+          enabled: false
+
+        test:
           enabled: false
 
         minio:
