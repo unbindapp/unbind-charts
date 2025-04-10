@@ -193,10 +193,9 @@ releases:
             retention_deletes_enabled: true
             retention_period: {{ .Environment.Values | get "overrides.loki.retentionPeriod" }}
           resultsCache:
-            resources:
-              limits:
-                cpu: 200m
-                memory: 512Mi
+            enabled: false
+          chunksCache:
+            enabled: false
 
         minio:
           enabled: true
