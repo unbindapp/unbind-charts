@@ -35,12 +35,10 @@ spec:
     unbind: unbind
 
   users:
-    dex:                   
-      flags:
-        - LOGIN
+    dex:
+      - LOGIN
     unbind:
-      flags: 
-        - SUPERUSER
+      - SUPERUSER
 
   resources:
     requests:

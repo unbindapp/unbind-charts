@@ -62,17 +62,12 @@ releases:
         args: 
           - -c
           - |
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagers.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_probes.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_prometheusagents.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_prometheuses.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_scrapeconfigs.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
-            kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.81.0/example/prometheus-operator-crd/monitoring.coreos.com_thanosrulers.yaml
-            sleep 5
+            for CRD in alertmanagerconfigs alertmanagers podmonitors probes prometheuses prometheusrules servicemonitors thanosrulers; do
+              kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.60.0/example/prometheus-operator-crd/monitoring.coreos.com_${CRD}.yaml
+            done
+
+            # !TODO https://raw.githubusercontent.com/zalando/postgres-operator/refs/heads/master/manifests/operatorconfiguration.crd.yaml
+            # https://raw.githubusercontent.com/zalando/postgres-operator/refs/heads/master/manifests/postgresql.crd.yaml
     values:
       - values/kube-prometheus-stack.yaml
       - prometheus:
