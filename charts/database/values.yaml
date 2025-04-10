@@ -1,9 +1,6 @@
 replicaCount: 1
 storage: "5Gi"
 resources:
-  requests:
-    cpu: 100m
-    memory: 100Mi
   limits:
     cpu: 512m
     memory: 1Gi

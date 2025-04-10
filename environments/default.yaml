@@ -56,9 +56,6 @@ overrides:
     replicaCount: 1
     storage: "5Gi"
     resources:
-      requests:
-        cpu: 100m
-        memory: 100Mi
       limits:
         cpu: 512m
         memory: 1Gi
@@ -128,9 +125,6 @@ overrides:
     
     # Resource settings
     resources:
-      requests:
-        cpu: "100m"
-        memory: "128Mi"
       limits:
         cpu: "200m"
         memory: "256Mi"
@@ -152,9 +146,6 @@ overrides:
       port: 443
       targetPort: 443
     resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
       limits:
         cpu: 300m
         memory: 256Mi
@@ -186,9 +177,6 @@ overrides:
       readinessProbe:
         initialDelaySeconds: 30
         periodSeconds: 10
-        requests:
-          cpu: 100m
-          memory: 200Mi
         limits:
           cpu: 250m
           memory: 512Mi
@@ -241,9 +229,6 @@ overrides:
         initialDelaySeconds: 30
         periodSeconds: 10
       resources:
-        requests:
-          cpu: 100m
-          memory: 200Mi
         limits:
           cpu: 250m
           memory: 512Mi
@@ -280,9 +265,6 @@ overrides:
         initialDelaySeconds: 30
         periodSeconds: 10
       resources:
-        requests:
-          cpu: 100m
-          memory: 200Mi
         limits:
           cpu: 250m
           memory: 512Mi

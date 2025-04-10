@@ -68,12 +68,9 @@ ui:
     pullPolicy: "Always"
   replicaCount: 2
   resources:
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
     limits:
       cpu: "500m"
-      memory: "1Gi"
+      memory: "512Mi"
   containerPort: 3000
   service:
     type: ClusterIP
@@ -120,12 +117,9 @@ api:
     pullPolicy: "Always"
   replicaCount: 2
   resources:
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
     limits:
       cpu: "500m"
-      memory: "2Gi"
+      memory: "512Mi"
   containerPort: 8089
   service:
     type: ClusterIP
@@ -203,12 +197,9 @@ auth:
     pullPolicy: "Always"
   replicaCount: 3
   resources:
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
     limits:
       cpu: "500m"
-      memory: "2Gi"
+      memory: "512Mi"
   containerPort: 8090
   service:
     type: ClusterIP

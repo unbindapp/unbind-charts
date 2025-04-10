@@ -193,6 +193,11 @@ releases:
           tableManager:
             retention_deletes_enabled: true
             retention_period: {{ .Environment.Values | get "overrides.loki.retentionPeriod" }}
+          resultsCache:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 512Mi
 
         minio:
           enabled: true
@@ -295,9 +300,6 @@ releases:
         replicaCount: {{ .Environment.Values | get "overrides.database.replicaCount" }}
         storage: {{ .Environment.Values | get "overrides.database.storage" }}
         resources:
-          requests:
-            cpu: {{ .Environment.Values | get "overrides.database.resources.requests.cpu"  }}
-            memory: {{ .Environment.Values | get "overrides.database.resources.requests.memory" }}
           limits:
             cpu: {{ .Environment.Values | get "overrides.database.resources.limits.cpu" }}
             memory: {{ .Environment.Values | get "overrides.database.resources.limits.memory" }}
@@ -552,9 +554,6 @@ releases:
 
         # Configure resources based on environment values
         resources:
-          requests:
-            cpu: {{ .Environment.Values | get "overrides.dex.resources.requests.cpu" "100m" }}
-            memory: {{ .Environment.Values | get "overrides.dex.resources.requests.memory" "128Mi" }}
           limits:
             cpu: {{ .Environment.Values | get "overrides.dex.resources.limits.cpu" "200m" }}
             memory: {{ .Environment.Values | get "overrides.dex.resources.limits.memory" "256Mi" }}
@@ -606,9 +605,6 @@ releases:
           targetPort: {{ .Environment.Values | get "overrides.kubeOidcProxy.service.targetPort" 443 }}
         
         resources:
-          requests:
-            cpu: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.requests.cpu" "100m" }}
-            memory: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.requests.memory" "128Mi" }}
           limits:
             cpu: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.limits.cpu" "300m" }}
             memory: {{ .Environment.Values | get "overrides.kubeOidcProxy.resources.limits.memory" "256Mi" }}
@@ -725,9 +721,6 @@ releases:
             pullPolicy: {{ .Environment.Values | get "overrides.unbind.ui.pullPolicy" "Always" }}
           replicaCount: {{ .Environment.Values | get "overrides.unbind.ui.replicaCount" 2 }}
           resources:
-            requests:
-              cpu: {{ .Environment.Values | get "overrides.unbind.ui.resources.requests.cpu" "100m" }}
-              memory: {{ .Environment.Values | get "overrides.unbind.ui.resources.requests.memory" "200Mi" }}
             limits:
               cpu: {{ .Environment.Values | get "overrides.unbind.ui.resources.limits.cpu" "500m" }}
               memory: {{ .Environment.Values | get "overrides.unbind.ui.resources.limits.memory" "1Gi" }}
@@ -777,9 +770,6 @@ releases:
             pullPolicy: {{ .Environment.Values | get "overrides.unbind.api.pullPolicy" "Always" }}
           replicaCount: {{ .Environment.Values | get "overrides.unbind.api.replicaCount" 2 }}
           resources:
-            requests:
-              cpu: {{ .Environment.Values | get "overrides.unbind.api.resources.requests.cpu" "100m" }}
-              memory: {{ .Environment.Values | get "overrides.unbind.api.resources.requests.memory" "200Mi" }}
             limits:
               cpu: {{ .Environment.Values | get "overrides.unbind.api.resources.limits.cpu" "500m" }}
               memory: {{ .Environment.Values | get "overrides.unbind.api.resources.limits.memory" "2Gi" }}
@@ -860,9 +850,6 @@ releases:
             pullPolicy: {{ .Environment.Values | get "overrides.unbind.auth.pullPolicy" "Always" }}
           replicaCount: {{ .Environment.Values | get "overrides.unbind.auth.replicaCount" 2 }}
           resources:
-            requests:
-              cpu: {{ .Environment.Values | get "overrides.unbind.auth.resources.requests.cpu" "100m" }}
-              memory: {{ .Environment.Values | get "overrides.unbind.auth.resources.requests.memory" "200Mi" }}
             limits:
               cpu: {{ .Environment.Values | get "overrides.unbind.auth.resources.limits.cpu" "500m" }}
               memory: {{ .Environment.Values | get "overrides.unbind.auth.resources.limits.memory" "2Gi" }}
