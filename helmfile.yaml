@@ -182,7 +182,7 @@ releases:
         minio:
           enabled: true
           persistence:
-            enabled: true∂
+            enabled: true
             size: {{ .Environment.Values | get "overrides.loki.minioStorageSize" }}
 
         deploymentMode: SingleBinary
