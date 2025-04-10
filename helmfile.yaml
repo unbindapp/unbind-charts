@@ -577,3 +577,18 @@ releases:
     labels:
       component: auth
       installed: {{ .Environment.Values | get "components.kubeOidcProxy.enabled" true }}
+
+    # * Unbind operator
+  - name: unbind-operator
+    namespace: '{{ .Environment.Values | get "global.namespace" }}'
+    chart: ./charts/unbind-operator
+    values:
+      -
+        controllerManager:
+          container:
+            image:
+              repository: {{ .Environment.Values | get "overrides.unbind.operator.repository" "unbindapp/unbind-operator" }}
+              tag: {{ .Environment.Values | get "overrides.unbind.operator.tag" "latest" }}
+    labels:
+      component: unbind-operator
+      installed: true
