@@ -141,8 +141,6 @@ api:
       value: "https://unbind.example.com/api"
     - name: EXTERNAL_WILDCARD_BASE_URL
       value: "https://example.com"
-    - name: UNBIND_SERVICE_DEF_VERSION
-      value: "v0.1.20"
     - name: POSTGRES_HOST
       value: "pg-unbind"
     - name: POSTGRES_PORT

@@ -841,8 +841,6 @@ releases:
               value: {{ printf "https://unbind.%s/api" .Values.baseDomain }}
             - name: EXTERNAL_WILDCARD_BASE_URL
               value: {{ printf "https://%s" .Values.baseDomain }}
-            - name: UNBIND_SERVICE_DEF_VERSION
-              value: {{ .Values | get "overrides.unbind.api.serviceDefVersion" "v0.1.20" }}
             - name: POSTGRES_HOST
               value: {{ .Values | get "overrides.unbind.api.database.host" (printf "pg-unbind.%s" .Values.namespace) }}
             - name: POSTGRES_PORT
