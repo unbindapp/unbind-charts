@@ -139,7 +139,10 @@ api:
     - name: POSTGRES_PORT
       value: "5432"
     - name: POSTGRES_USER
-      value: "unbind"
+      valueFrom:
+        secretKeyRef:
+          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
+          key: username
     - name: POSTGRES_PASSWORD
       valueFrom:
         secretKeyRef:
@@ -215,7 +218,10 @@ auth:
     - name: POSTGRES_PORT
       value: "5432"
     - name: POSTGRES_USER
-      value: "unbind"
+      valueFrom:
+        secretKeyRef:
+          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
+          key: username
     - name: POSTGRES_PASSWORD
       valueFrom:
         secretKeyRef:

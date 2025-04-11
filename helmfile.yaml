@@ -510,7 +510,7 @@ releases:
               host: {{ .Values | get "overrides.dex.postgres.host" (printf "pg-unbind.%s" .Values.namespace) }}
               port: {{ .Values | get "overrides.dex.postgres.port" 5432 }}
               database: {{ .Values | get "overrides.dex.postgres.database" "dex" }}
-              user: {{ .Values | get "overrides.dex.postgres.user" "dex" }}
+              user: {{ printf "$%s" "POSTGRES_USER" }}
               password: {{ printf "$%s" "POSTGRES_PASSWORD" }}
               ssl:
                 mode: {{ .Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
@@ -558,6 +558,11 @@ releases:
 
         # Environment variables to pull secrets from Kubernetes secrets
         envVars:
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values | get "overrides.dex.postgres.secretName" "dex.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                key: username
           - name: POSTGRES_PASSWORD
             valueFrom:
               secretKeyRef:
@@ -817,7 +822,10 @@ releases:
             - name: POSTGRES_PORT
               value: {{ .Values | get "overrides.unbind.api.database.port" "5432" | quote }}
             - name: POSTGRES_USER
-              value: {{ .Values | get "overrides.unbind.api.database.user" "unbind" }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values | get "overrides.unbind.api.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                  key: username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -893,7 +901,10 @@ releases:
             - name: POSTGRES_PORT
               value: {{ .Values | get "overrides.unbind.auth.database.port" "5432" | quote }}
             - name: POSTGRES_USER
-              value: {{ .Values | get "overrides.unbind.auth.database.user" "unbind" }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values | get "overrides.unbind.api.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
+                  key: username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
