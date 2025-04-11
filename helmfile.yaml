@@ -643,7 +643,6 @@ releases:
     namespace: '{{ .Environment.Values.global.namespace }}'
     chart: ./charts/unbind  # Local path to your chart
     needs:
-      - dex
       - valkey
       - database
       - buildkit
