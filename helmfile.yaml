@@ -506,7 +506,7 @@ releases:
               port: {{ .Environment.Values | get "overrides.dex.postgres.port" 5432 }}
               database: {{ .Environment.Values | get "overrides.dex.postgres.database" "dex" }}
               user: {{ .Environment.Values | get "overrides.dex.postgres.user" "dex" }}
-              password: {{ '$POSTGRES_PASSWORD' | quote }}
+              password: "$$POSTGRES_PASSWORD"
               ssl:
                 mode: {{ .Environment.Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
           web:
