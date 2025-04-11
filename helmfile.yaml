@@ -341,7 +341,7 @@ releases:
         primary:
           replicaCount: 1
         replica:
-          replicaCount: 1
+          replicaCount: 0
     labels:
       component: valkey
       installed: {{ .Environment.Values | get "components.valkey.enabled" true }}
@@ -506,7 +506,7 @@ releases:
               port: {{ .Environment.Values | get "overrides.dex.postgres.port" 5432 }}
               database: {{ .Environment.Values | get "overrides.dex.postgres.database" "dex" }}
               user: {{ .Environment.Values | get "overrides.dex.postgres.user" "dex" }}
-              passwordEnv: POSTGRES_PASSWORD
+              password: $POSTGRES_PASSWORD
               ssl:
                 mode: {{ .Environment.Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
           web:
@@ -524,7 +524,7 @@ releases:
             refreshTokens:
               validIfNotUsedFor: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.validIfNotUsedFor" "336h" }}
               disableRotation: {{ .Environment.Values | get "overrides.dex.expiry.refreshTokens.disableRotation" true }}
-          connectors: {{ .Environment.Values | get "overrides.dex.connectors" (list (dict "type" "oidc" "id" "unbind-oidc" "name" "Unbind Built-in OIDC Provider" "config" (dict "issuer" (printf "https://unbind.%s/oauth2/api" .Environment.Values.global.baseDomain) "clientID" "dex-client" "clientSecretEnv" "CONNECTOR_SECRET" "redirectURI" (printf "https://dex.%s/callback" .Environment.Values.global.baseDomain) "scopes" (list "openid" "profile" "email" "offline_access" "groups") "insecureEnableGroups" true "discoveryURL" (printf "https://unbind.%s/oauth2/api/.well-known/openid-configuration" .Environment.Values.global.baseDomain) "userIDKey" "jti" "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")))) | toYaml | nindent 12 }}
+          connectors: {{ .Environment.Values | get "overrides.dex.connectors" (list (dict "type" "oidc" "id" "unbind-oidc" "name" "Unbind Built-in OIDC Provider" "config" (dict "issuer" (printf "https://unbind.%s/oauth2/api" .Environment.Values.global.baseDomain) "clientID" "dex-client" "clientSecret" $CONNECTOR_SECRET "redirectURI" (printf "https://dex.%s/callback" .Environment.Values.global.baseDomain) "scopes" (list "openid" "profile" "email" "offline_access" "groups") "insecureEnableGroups" true "discoveryURL" (printf "https://unbind.%s/oauth2/api/.well-known/openid-configuration" .Environment.Values.global.baseDomain) "userIDKey" "jti" "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")))) | toYaml | nindent 12 }}
           staticClients:
             - id: unbind-api
               secretEnv: CLIENT_SECRET
