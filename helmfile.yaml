@@ -105,7 +105,7 @@ releases:
                 role = "pod"
                 selectors {
                   role = "pod"
-                  label = "unbind-team,unbind-project,unbind-environment,unbind-service"
+                  label = "unbind-team,unbind-project,unbind-environment,unbind-service,unbind-deployment"
                 }
               }
               discovery.kubernetes "deployment_pods" {
@@ -295,6 +295,7 @@ releases:
             - unbing-project
             - unbind-environment
             - unbind-service
+            - unbind-deployment
             - unbind-is-system-db
             # Helm labels
             - app.kubernetes.io/managed-by
