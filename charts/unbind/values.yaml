@@ -68,6 +68,9 @@ ui:
     pullPolicy: "Always"
   replicaCount: 2
   resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
     limits:
       cpu: "500m"
       memory: "512Mi"
@@ -117,6 +120,9 @@ api:
     pullPolicy: "Always"
   replicaCount: 2
   resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
     limits:
       cpu: "500m"
       memory: "512Mi"
@@ -200,6 +206,9 @@ auth:
     pullPolicy: "Always"
   replicaCount: 2
   resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
     limits:
       cpu: "500m"
       memory: "512Mi"

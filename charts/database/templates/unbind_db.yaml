@@ -41,6 +41,9 @@ spec:
       - SUPERUSER
 
   resources:
+    requests:
+      memory: "10Mi" 
+      cpu: "10m"  
     limits:
       cpu: {{ .Values.resources.limits.cpu  }}
       memory: {{ .Values.resources.limits.memory  }}

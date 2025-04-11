@@ -322,6 +322,9 @@ releases:
         replicaCount: {{ .Values | get "overrides.database.replicaCount" }}
         storage: {{ .Values | get "overrides.database.storage" }}
         resources:
+          requests:
+            memory: "10Mi" 
+            cpu: "10m"    
           limits:
             cpu: {{ .Values | get "overrides.database.resources.limits.cpu" }}
             memory: {{ .Values | get "overrides.database.resources.limits.memory" }}
@@ -391,10 +394,6 @@ releases:
             enabled: true
             type: LoadBalancer
             externalTrafficPolicy: Local
-          resources:
-            requests:
-              cpu: 100m
-              memory: 90Mi
           config:
             use-forwarded-headers: "true"
             compute-full-forwarded-for: "true"
@@ -586,6 +585,9 @@ releases:
 
         # Configure resources based on environment values
         resources:
+          requests:
+            memory: "10Mi" 
+            cpu: "10m"  
           limits:
             cpu: {{ .Values | get "overrides.dex.resources.limits.cpu" "200m" }}
             memory: {{ .Values | get "overrides.dex.resources.limits.memory" "256Mi" }}
@@ -637,6 +639,9 @@ releases:
           targetPort: {{ .Values | get "overrides.kubeOidcProxy.service.targetPort" 443 }}
         
         resources:
+          requests:
+            memory: "10Mi" 
+            cpu: "10m"  
           limits:
             cpu: {{ .Values | get "overrides.kubeOidcProxy.resources.limits.cpu" "300m" }}
             memory: {{ .Values | get "overrides.kubeOidcProxy.resources.limits.memory" "256Mi" }}
@@ -751,6 +756,9 @@ releases:
             pullPolicy: {{ .Values | get "overrides.unbind.ui.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.ui.replicaCount" 2 }}
           resources:
+            requests:
+              memory: "10Mi" 
+              cpu: "10m"  
             limits:
               cpu: {{ .Values | get "overrides.unbind.ui.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.ui.resources.limits.memory" "1Gi" }}
@@ -800,6 +808,9 @@ releases:
             pullPolicy: {{ .Values | get "overrides.unbind.api.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.api.replicaCount" 2 }}
           resources:
+            requests:
+              memory: "10Mi" 
+              cpu: "10m"  
             limits:
               cpu: {{ .Values | get "overrides.unbind.api.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.api.resources.limits.memory" "2Gi" }}
@@ -883,6 +894,9 @@ releases:
             pullPolicy: {{ .Values | get "overrides.unbind.auth.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.auth.replicaCount" 2 }}
           resources:
+            requests:
+              memory: "10Mi" 
+              cpu: "10m"  
             limits:
               cpu: {{ .Values | get "overrides.unbind.auth.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.auth.resources.limits.memory" "2Gi" }}
