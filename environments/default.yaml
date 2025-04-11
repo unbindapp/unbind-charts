@@ -1,10 +1,6 @@
 # environments/default.yaml
 # Default environment settings
 
-global:
-  baseDomain: example.com
-  namespace: unbind-system
-
 components:
   longhorn:
     enabled: false
@@ -133,7 +129,6 @@ overrides:
       tag: master-13812109543
       pullPolicy: Always
     oidc:
-      issuerUrl: https://dex.unbind.app  # Will be templated with baseDomain in helmfile
       clientId: unbind-api
       usernameClaim: email
       groupsClaim: groups
@@ -194,8 +189,6 @@ overrides:
         secretName: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
       # Dex auth configuration for API
       dex:
-        issuerUrl: https://dex.example.com
-        issuerUrlExternal: https://dex.example.com
         clientId: unbind-api
         secretName: dex-client-secrets
         secretKey: unbind-api-secret
@@ -244,8 +237,6 @@ overrides:
         secretName: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
       # Dex auth configuration for Auth service
       dex:
-        issuerUrl: https://dex.example.com
-        issuerUrlExternal: https://dex.example.com
         clientId: unbind-api
         secretName: dex-client-secrets
         secretKey: unbind-api-secret
