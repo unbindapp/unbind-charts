@@ -686,6 +686,7 @@ releases:
   # Unbind App section of helmfile.yaml
   - name: unbind-app
     namespace: '{{ .Values.namespace }}'
+    wait: false
     chart: ./charts/unbind  # Local path to your chart
     needs:
       - valkey
