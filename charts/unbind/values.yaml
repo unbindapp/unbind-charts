@@ -12,6 +12,9 @@ serviceAccount:
 # RBAC
 rbac:
   create: true
+  createUserNamespaceAdmin: true
+  # The namespace where user resources will be managed
+  userNamespace: "unbind-user"
 
 # Builder configuration
 builder:

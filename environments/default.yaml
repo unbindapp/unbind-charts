@@ -85,7 +85,7 @@ overrides:
     
     # PostgreSQL configuration
     postgres:
-      host: "pg-unbind.unbind-system"
+      # host: "pg-unbind.unbind-system"
       port: 5432
       database: "dex"
       user: "dex"
@@ -182,7 +182,7 @@ overrides:
       serviceDefVersion: v0.1.20
       # Database configuration for API
       database:
-        host: pg-unbind
+        # host: pg-unbind
         port: 5432
         name: unbind
         user: unbind
@@ -201,11 +201,11 @@ overrides:
       buildImager: unbindapp/unbind-builder:latest
       # Registry configuration
       registry:
-        host: docker-registry.unbind-system:5000
+        # host: docker-registry.unbind-system:5000
         password: "TODO"
       # Buildkit configuration
       buildkit:
-        host: tcp://buildkitd.unbind-system:1234
+        # host: tcp://buildkitd.unbind-system:1234
       # Logging and monitoring
       loki:
         endpoint: http://loki-unbind-gateway.unbind-system.svc.cluster.local
@@ -231,7 +231,7 @@ overrides:
       replicaCount: 1
       # Database configuration for Auth
       database:
-        host: pg-unbind
+        # host: pg-unbind
         port: 5432
         user: unbind
         secretName: unbind.pg-unbind.credentials.postgresql.acid.zalan.do

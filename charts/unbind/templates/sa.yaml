@@ -11,3 +11,182 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
+
+---
+# Role for system namespace with full access
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "unbind.fullname" . }}-system-admin
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+# RoleBinding for system namespace admin access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-system-admin-binding
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "unbind.fullname" . }}-system-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRole for creating/managing Roles and RoleBindings in any namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "unbind.fullname" . }}-role-manager
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# ClusterRole for services.unbind.unbind.app resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "unbind.fullname" . }}-services-admin
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["unbind.unbind.app"]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# ClusterRole for read-only access to cluster resources (visibility)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "unbind.fullname" . }}-cluster-resources-reader
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["", "apps", "batch", "extensions", "networking.k8s.io"]
+    resources: [
+      "namespaces",
+      "configmaps",
+      "pods",
+      "services",
+      "deployments",
+      "statefulsets",
+      "replicasets",
+      "daemonsets",
+      "jobs",
+      "cronjobs",
+      "ingresses",
+      "ingressclasses",
+      "networkpolicies",
+      "persistentvolumeclaims",
+      "endpoints",
+      "events"
+    ]
+    verbs: ["get", "list", "watch"]
+---
+# ClusterRoleBinding for role management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-role-manager-binding
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "unbind.fullname" . }}-role-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRoleBinding for unbind services admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-services-admin-binding
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "unbind.fullname" . }}-services-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRoleBinding for cluster resources reader
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-cluster-resources-reader-binding
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "unbind.fullname" . }}-cluster-resources-reader
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- if and .Values.rbac.create .Values.rbac.createUserNamespaceAdmin }}
+---
+# Role template for user namespace admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "unbind.fullname" . }}-namespace-admin
+  namespace: {{ .Values.rbac.userNamespace | default "unbind-user" }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "pods", "services", "secrets", "persistentvolumeclaims", "endpoints", "events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# RoleBinding for user namespace admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-namespace-admin-binding
+  namespace: {{ .Values.rbac.userNamespace | default "unbind-user" }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "unbind.fullname" . }}-namespace-admin
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

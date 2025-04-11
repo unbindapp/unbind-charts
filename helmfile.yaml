@@ -289,6 +289,13 @@ releases:
       - 
         configGeneral:
           docker_image: {{ .Values | get "overrides.postgresOperator.spiloImage" }}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 500Mi
+          requests:
+            cpu: 10m
+            memory: 50Mi
         configKubernetes:
           inherited_labels:
             - unbind-team
@@ -348,6 +355,13 @@ releases:
           size: 1Gi
         primary:
           replicaCount: 1
+          resources:
+            requests:
+              memory: "10Mi" 
+              cpu: "10m"
+            limits:
+              memory: 192Mi
+              cpu: 200m
         replica:
           replicaCount: 0
     labels:
