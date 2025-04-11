@@ -205,7 +205,7 @@ overrides:
         password: "TODO"
       # Buildkit configuration
       buildkit:
-        # host: tcp://buildkitd.unbind-system:1234
+        host:
       # Logging and monitoring
       loki:
         endpoint: http://loki-unbind-gateway.unbind-system.svc.cluster.local

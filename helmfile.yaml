@@ -883,7 +883,12 @@ releases:
             - name: CONTAINER_REGISTRY_PASSWORD
               value: {{ .Values | get "overrides.unbind.api.registry.password" "TODO" }}
             - name: BUILDKIT_HOST
-              value: {{ .Values | get "overrides.unbind.api.buildkit.host" (printf "tcp://buildkitd.%s:1234" .Values.namespace) }}
+              value: {{ $hostValue := .Values | get "overrides.unbind.api.buildkit.host" "" }}
+                    {{- if $hostValue }}
+                    {{- $hostValue }}
+                    {{- else }}
+                    {{- printf "tcp://buildkitd.%s:1234" .Values.namespace }}
+                    {{- end }}
             - name: LOKI_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-unbind-gateway.%s.svc.cluster.local" .Values.namespace) }}
             - name: PROMETHEUS_ENDPOINT
