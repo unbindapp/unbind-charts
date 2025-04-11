@@ -123,7 +123,7 @@ overrides:
         memory: "256Mi"
 
   kubeOidcProxy:
-    replicaCount: 2
+    replicaCount: 1
     image:
       repository: unbindapp/kube-oidc-proxy
       tag: master-13812109543
@@ -157,7 +157,7 @@ overrides:
       repository: unbindapp/unbind-ui
       tag: latest
       pullPolicy: Always
-      replicaCount: 2
+      replicaCount: 1
       # Additional settings for UI
       dex:
         clientId: unbind-api
@@ -178,7 +178,7 @@ overrides:
       repository: unbindapp/unbind-api
       tag: latest
       pullPolicy: Always
-      replicaCount: 2
+      replicaCount: 1
       serviceDefVersion: v0.1.20
       # Database configuration for API
       database:
@@ -228,7 +228,7 @@ overrides:
       repository: unbindapp/unbind-api
       tag: latest
       pullPolicy: Always
-      replicaCount: 2
+      replicaCount: 1
       # Database configuration for Auth
       database:
         host: pg-unbind

@@ -195,7 +195,7 @@ auth:
     repository: "unbindapp/unbind-auth"
     tag: "latest"
     pullPolicy: "Always"
-  replicaCount: 3
+  replicaCount: 2
   resources:
     limits:
       cpu: "500m"
