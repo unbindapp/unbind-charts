@@ -42,6 +42,19 @@ releases:
     namespace: {{ .Values.namespace }}
     chart: longhorn/longhorn
     version: 1.8.1 # Lock to specific version for compatibility
+    hooks:
+    - events: ["presync"]
+      showlogs: true
+      command: /bin/sh
+      args:
+        - -c
+        - |
+          echo "Removing default annotation from any existing default StorageClasses..."
+          for sc in $(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'); do
+            echo "Removing default annotation from StorageClass $sc"
+            kubectl patch storageclass $sc -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "false"}}}'
+          done
+          echo "Done removing default annotation from existing StorageClasses"
     values:
       - values/longhorn.yaml
       # This is where we add dynamic values that get merged into the chart
