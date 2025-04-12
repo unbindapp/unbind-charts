@@ -467,7 +467,6 @@ releases:
     namespace: {{ .Values.namespace }}
     chart: dex/dex
     version: 0.23.0 
-    wait: false
     needs:
       - postgres-operator
       - database
@@ -686,13 +685,13 @@ releases:
   # Unbind App section of helmfile.yaml
   - name: unbind-app
     namespace: '{{ .Values.namespace }}'
-    wait: false
     chart: ./charts/unbind  # Local path to your chart
     needs:
       - valkey
       - database
       - buildkit
       - registry
+      - dex
     hooks:
       # Pre-install hook to generate secrets if they don't exist
       - events: ["presync"]
