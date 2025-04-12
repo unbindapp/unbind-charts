@@ -44,6 +44,18 @@ roleRef:
   name: {{ include "unbind.fullname" . }}-system-admin
   apiGroup: rbac.authorization.k8s.io
 ---
+# ClusterRole for namespace management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "unbind.fullname" . }}-namespace-manager
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
 # ClusterRole for creating/managing Roles and RoleBindings in any namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -97,6 +109,22 @@ rules:
     ]
     verbs: ["get", "list", "watch"]
 ---
+# ClusterRoleBinding for namespace management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-namespace-manager-binding
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "unbind.fullname" . }}-namespace-manager
+  apiGroup: rbac.authorization.k8s.io
+---
 # ClusterRoleBinding for role management
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -143,50 +171,5 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: {{ include "unbind.fullname" . }}-cluster-resources-reader
-  apiGroup: rbac.authorization.k8s.io
-{{- end }}
-
-{{- if and .Values.rbac.create .Values.rbac.createUserNamespaceAdmin }}
----
-# Role template for user namespace admin
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ include "unbind.fullname" . }}-namespace-admin
-  namespace: {{ .Values.rbac.userNamespace | default "unbind-user" }}
-  labels:
-    {{- include "unbind.labels" . | nindent 4 }}
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps", "pods", "services", "secrets", "persistentvolumeclaims", "endpoints", "events"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["roles", "rolebindings"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
----
-# RoleBinding for user namespace admin
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ include "unbind.fullname" . }}-namespace-admin-binding
-  namespace: {{ .Values.rbac.userNamespace | default "unbind-user" }}
-  labels:
-    {{- include "unbind.labels" . | nindent 4 }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ include "unbind.serviceAccountName" . }}
-    namespace: {{ .Values.global.namespace }}
-roleRef:
-  kind: Role
-  name: {{ include "unbind.fullname" . }}-namespace-admin
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
