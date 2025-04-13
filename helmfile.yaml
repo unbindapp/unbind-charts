@@ -709,7 +709,6 @@ releases:
       - database
       - buildkit
       - registry
-      - dex
     hooks:
       # Pre-install hook to generate secrets if they don't exist
       - events: ["presync"]
