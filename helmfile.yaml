@@ -233,6 +233,12 @@ releases:
           replicas: 1
           persistence:
             enabled: false
+          extraVolumes:
+            - name: loki-data
+              emptyDir: {}
+          extraVolumeMounts:
+            - name: loki-data
+              mountPath: /var/loki
 
         # Zero out replica counts of other deployment modes
         backend:
