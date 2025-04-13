@@ -2,8 +2,8 @@
 # Main Helmfile configuration
 # Repositories
 repositories:
-  - name: longhorn
-    url: https://charts.longhorn.io
+  # - name: longhorn
+  #   url: https://charts.longhorn.io
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
   - name: postgres-operator
@@ -38,35 +38,35 @@ helmDefaults:
 # Releases
 releases:
   # Managed Helm Charts with version locks
-  - name: longhorn
-    namespace: {{ .Values.namespace }}
-    chart: longhorn/longhorn
-    version: 1.8.1 # Lock to specific version for compatibility
-    hooks:
-    - events: ["presync"]
-      showlogs: true
-      command: /bin/sh
-      args:
-        - -c
-        - |
-          echo "Removing default annotation from any existing default StorageClasses..."
-          for sc in $(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'); do
-            echo "Removing default annotation from StorageClass $sc"
-            kubectl patch storageclass $sc -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "false"}}}'
-          done
-          echo "Done removing default annotation from existing StorageClasses"
-    values:
-      - values/longhorn.yaml
-      # This is where we add dynamic values that get merged into the chart
-      - persistence:
-          defaultClass: {{ .Values | get "overrides.longhorn.persistence.defaultClass" true }}
-          defaultClassReplicaCount: {{ .Values | get "overrides.longhorn.persistence.defaultClassReplicaCount" }}
-          reclaimPolicy: {{ .Values | get "overrides.longhorn.persistence.reclaimPolicy" }}
-        defaultSettings:
-          defaultReplicaCount: {{ .Values | get "overrides.longhorn.defaultSettings.defaultReplicaCount" }}
-    labels:
-      component: storage
-      installed: {{ .Values | get "components.longhorn.enabled" true }}
+  # - name: longhorn
+  #   namespace: {{ .Values.namespace }}
+  #   chart: longhorn/longhorn
+  #   version: 1.8.1 # Lock to specific version for compatibility
+  #   hooks:
+  #   - events: ["presync"]
+  #     showlogs: true
+  #     command: /bin/sh
+  #     args:
+  #       - -c
+  #       - |
+  #         echo "Removing default annotation from any existing default StorageClasses..."
+  #         for sc in $(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'); do
+  #           echo "Removing default annotation from StorageClass $sc"
+  #           kubectl patch storageclass $sc -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "false"}}}'
+  #         done
+  #         echo "Done removing default annotation from existing StorageClasses"
+  #   values:
+  #     - values/longhorn.yaml
+  #     # This is where we add dynamic values that get merged into the chart
+  #     - persistence:
+  #         defaultClass: {{ .Values | get "overrides.longhorn.persistence.defaultClass" true }}
+  #         defaultClassReplicaCount: {{ .Values | get "overrides.longhorn.persistence.defaultClassReplicaCount" }}
+  #         reclaimPolicy: {{ .Values | get "overrides.longhorn.persistence.reclaimPolicy" }}
+  #       defaultSettings:
+  #         defaultReplicaCount: {{ .Values | get "overrides.longhorn.defaultSettings.defaultReplicaCount" }}
+  #   labels:
+  #     component: storage
+  #     installed: {{ .Values | get "components.longhorn.enabled" true }}
 
   - name: kube-prometheus-stack
     namespace: {{ .Values.namespace }}
@@ -232,8 +232,7 @@ releases:
         singleBinary:
           replicas: 1
           persistence:
-            enabled: true
-            size: {{ .Values | get "overrides.loki.storageSize" }}
+            enabled: false
 
         # Zero out replica counts of other deployment modes
         backend:
