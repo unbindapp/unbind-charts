@@ -125,7 +125,7 @@ releases:
                 role = "pod"
                 selectors {
                   role = "pod"
-                  label = "unbind-deployment"
+                  label = "unbind-deployment-build"
                 }
               }
               discovery.relabel "pods" {
@@ -150,13 +150,18 @@ releases:
                   source_labels = ["__meta_kubernetes_pod_label_unbind_service"]
                   target_label  = "unbind_service"
                 }
+                rule {
+                  action        = "replace"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_deployment"]
+                  target_label  = "unbind_deployment"
+                }
               }
               discovery.relabel "deployment_pods" {
                 targets = discovery.kubernetes.deployment_pods.targets
                 rule {
                   action        = "replace"
-                  source_labels = ["__meta_kubernetes_pod_label_unbind_deployment"]
-                  target_label  = "unbind_deployment"
+                  source_labels = ["__meta_kubernetes_pod_label_unbind_deployment_build"]
+                  target_label  = "unbind_deployment_build"
                 }
               }
               loki.source.kubernetes "pods" {
