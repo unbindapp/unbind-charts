@@ -6,10 +6,24 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "unbind.labels" . | nindent 4 }}
-  {{- with .Values.combinedIngress.annotations }}
   annotations:
+    {{- if not .Values.combinedIngress.annotations }}
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- end }}
+    {{- with .Values.combinedIngress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/eventsource: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/websocket-services: "unbind-api" 
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      rewrite ^/api/(.*) /$1 break;
+      rewrite ^/oauth2/api/(.*) /$1 break;
 spec:
   {{- if .Values.combinedIngress.tls.enabled }}
   ingressClassName: {{ .Values.combinedIngress.className }}
