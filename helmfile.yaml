@@ -544,18 +544,18 @@ releases:
               -subj "/CN=$DEX_DOMAIN"
               
               # Create config for SAN
-              cat > $CERT_DIR/dex.ext << EOF
-              authorityKeyIdentifier=keyid,issuer
-              basicConstraints=CA:FALSE
-              keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-              subjectAltName = @alt_names
-              [alt_names]
-              DNS.1 = $DEX_DOMAIN
-              DNS.2 = dex
-              DNS.3 = dex.$NAMESPACE
-              DNS.4 = dex.$NAMESPACE.svc
-              DNS.5 = dex.$NAMESPACE.svc.cluster.local
-              EOF
+            cat > $CERT_DIR/dex.ext << EOF
+            authorityKeyIdentifier=keyid,issuer
+            basicConstraints=CA:FALSE
+            keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+            subjectAltName = @alt_names
+            [alt_names]
+            DNS.1 = $DEX_DOMAIN
+            DNS.2 = dex
+            DNS.3 = dex.$NAMESPACE
+            DNS.4 = dex.$NAMESPACE.svc
+            DNS.5 = dex.$NAMESPACE.svc.cluster.local
+            EOF
               
               # Sign the certificate
               openssl x509 -req -in $CERT_DIR/dex.csr -CA $CERT_DIR/ca.crt -CAkey $CERT_DIR/ca.key \
