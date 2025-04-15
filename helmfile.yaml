@@ -517,26 +517,69 @@ releases:
               echo "Dex client secrets already exist, using existing values"
             fi
             
+            # Define variables
+            CERT_DIR="/tmp/certs"
+            DEX_DOMAIN="dex.{{ .Values.baseDomain }}"
+            NAMESPACE="{{ .Values.namespace }}"
+            GREEN='\033[0;32m'
+            NC='\033[0m'
+            
+            # Create certificate directory
+            mkdir -p $CERT_DIR
+            
             # Check if secret resource exists, create if not
             if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
-              echo "Creating Certificate resource for Dex TLS..."
-              kubectl apply -f - <<EOF
-            apiVersion: cert-manager.io/v1
-            kind: Certificate
-            metadata:
-              name: dex-certificate
-              namespace: {{ .Values.namespace }}
-              annotations:
-                acme.cert-manager.io/issue-temporary-certificate: "true"
-            spec:
-              secretName: dex-tls
-              issuerRef:
-                name: {{ .Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
-                kind: ClusterIssuer
-              dnsNames:
-                - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
-            EOF
-              echo "Certificate resource created for Dex"
+              echo "Generating certificates for Dex..."
+              
+              # Create a Root CA
+              echo -e "Generating Root CA..."
+              openssl genrsa -out $CERT_DIR/ca.key 4096
+              openssl req -x509 -new -nodes -key $CERT_DIR/ca.key -sha256 -days 6650 \
+              -out $CERT_DIR/ca.crt -subj "/CN=Unbind Root CA"
+              
+              # Create a certificate for Dex
+              echo -e "Generating certificate for $DEX_DOMAIN..."
+              openssl genrsa -out $CERT_DIR/dex.key 2048
+              openssl req -new -key $CERT_DIR/dex.key -out $CERT_DIR/dex.csr \
+              -subj "/CN=$DEX_DOMAIN"
+              
+              # Create config for SAN
+              cat > $CERT_DIR/dex.ext << EOF
+              authorityKeyIdentifier=keyid,issuer
+              basicConstraints=CA:FALSE
+              keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+              subjectAltName = @alt_names
+              [alt_names]
+              DNS.1 = $DEX_DOMAIN
+              DNS.2 = dex
+              DNS.3 = dex.$NAMESPACE
+              DNS.4 = dex.$NAMESPACE.svc
+              DNS.5 = dex.$NAMESPACE.svc.cluster.local
+              EOF
+              
+              # Sign the certificate
+              openssl x509 -req -in $CERT_DIR/dex.csr -CA $CERT_DIR/ca.crt -CAkey $CERT_DIR/ca.key \
+              -CAcreateserial -out $CERT_DIR/dex.crt -days 6650 -sha256 \
+              -extfile $CERT_DIR/dex.ext
+              echo -e "${GREEN}✓ Certificates generated${NC}"
+              
+              # Create the TLS secret for Dex
+              kubectl create secret tls dex-tls \
+                --namespace={{ .Values.namespace }} \
+                --cert=$CERT_DIR/dex.crt \
+                --key=$CERT_DIR/dex.key
+                
+              # Add the CA to the secret
+              CA_CRT=$(cat $CERT_DIR/ca.crt | base64 -w 0)
+              
+              # Patch the secret to include the CA certificate
+              kubectl patch secret dex-tls -n {{ .Values.namespace }} \
+                -p="{\"data\":{\"ca.crt\":\"$CA_CRT\"}}"
+                
+              echo "Created new TLS certificates for Dex"
+              
+              # Clean up temporary files
+              rm -rf $CERT_DIR
             else
               echo "Certificate resource for Dex already exists"
             fi
@@ -663,7 +706,7 @@ releases:
                 - path: /
                   pathType: Prefix
           tls:
-            - secretName: dex-tls
+            - secretName: dex-tls-ingress
               hosts:
                 - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
 
