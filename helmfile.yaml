@@ -646,6 +646,16 @@ releases:
               hosts:
                 - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
 
+        volumes:
+          - name: tls-certs
+            secret:
+              secretName: dex-tls
+
+        volumeMounts:
+          - name: tls-certs
+            mountPath: /etc/dex/tls
+            readOnly: true
+
     labels:
       component: dex
       installed: {{ .Values | get "components.dex.enabled" true }}
