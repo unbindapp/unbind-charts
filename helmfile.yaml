@@ -522,22 +522,23 @@ releases:
             # Check if Certificate resource exists, create if not
             if ! kubectl get certificate -n {{ .Values.namespace }} dex-certificate &> /dev/null; then
               echo "Creating Certificate resource for Dex TLS..."
+              # Note: This is a heredoc, so we need to be careful with escaping
               cat <<EOF | kubectl apply -f -
-              apiVersion: cert-manager.io/v1
-              kind: Certificate
-              metadata:
-                name: dex-certificate
-                namespace: {{ .Values.namespace }}
-                annotations:
-                  acme.cert-manager.io/issue-temporary-certificate: "true"
-              spec:
-                secretName: dex-tls
-                issuerRef:
-                  name: {{ .Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
-                  kind: ClusterIssuer
-                dnsNames:
-                  - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
-              EOF
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: dex-certificate
+      namespace: {{ .Values.namespace }}
+      annotations:
+        acme.cert-manager.io/issue-temporary-certificate: "true"
+    spec:
+      secretName: dex-tls
+      issuerRef:
+        name: {{ .Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
+        kind: ClusterIssuer
+      dnsNames:
+        - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
+    EOF
               echo "Certificate resource created for Dex"
             else
               echo "Certificate resource for Dex already exists"
