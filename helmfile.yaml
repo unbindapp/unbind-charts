@@ -517,10 +517,10 @@ releases:
               echo "Dex client secrets already exist, using existing values"
             fi
             
-            # Check if Certificate resource exists, create if not
-            if ! kubectl get certificate -n {{ .Values.namespace }} dex-certificate &> /dev/null; then
+            # Check if secret resource exists, create if not
+            if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
               echo "Creating Certificate resource for Dex TLS..."
-              cat <<EOF | kubectl apply -f -
+              cat << 'EOF' | kubectl apply -f -
               apiVersion: cert-manager.io/v1
               kind: Certificate
               metadata:
@@ -535,31 +535,11 @@ releases:
                   kind: ClusterIssuer
                 dnsNames:
                   - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
-    EOF
+              EOF
               echo "Certificate resource created for Dex"
             else
               echo "Certificate resource for Dex already exists"
             fi
-            
-            # Check if TLS secret exists, create an emergency temporary one if not
-            if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
-              echo "Creating emergency temporary TLS certificate for Dex"
-              # Generate temporary self-signed certificate
-              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout /tmp/tls.key -out /tmp/tls.crt \
-                -subj "/CN=dex.{{ .Values.baseDomain }}"
-              # Create the secret with the temporary certificate
-              kubectl create secret tls dex-tls \
-                --namespace={{ .Values.namespace }} \
-                --cert=/tmp/tls.crt \
-                --key=/tmp/tls.key
-              # Clean up
-              rm -f /tmp/tls.key /tmp/tls.crt
-              echo "Created emergency temporary TLS secret for Dex"
-            else
-              echo "Dex TLS secret already exists"
-            fi
-
     values:
       - 
         # Image configuration with dynamic version
