@@ -53,8 +53,8 @@ spec:
                   number: {{ .Values.auth.service.port }}
 
           # 3) Everything else -> UI service
-          - path: /(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: {{ .Values.ui.name }}
