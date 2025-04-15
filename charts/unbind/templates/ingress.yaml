@@ -21,9 +21,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
     nginx.ingress.kubernetes.io/websocket-services: "unbind-api" 
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      rewrite ^/api/(.*) /$1 break;
-      rewrite ^/oauth2/api/(.*) /$1 break;
+    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
 spec:
   {{- if .Values.combinedIngress.tls.enabled }}
   ingressClassName: {{ .Values.combinedIngress.className }}
@@ -36,25 +34,30 @@ spec:
     - host: {{ .Values.combinedIngress.host }}
       http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ .Values.ui.name }}
-                port:
-                  number: {{ .Values.ui.service.port }}
-          - path: /api
-            pathType: Prefix
+           # 1) /api -> direct to the API service, stripping /api
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ .Values.api.name }}
                 port:
                   number: {{ .Values.api.service.port }}
-          - path: /oauth2/api
-            pathType: Prefix
+
+          # 2) /oauth2/api -> direct to the Auth service, stripping /oauth2/api
+          - path: /oauth2/api(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ .Values.auth.name }}
                 port:
                   number: {{ .Values.auth.service.port }}
+
+          # 3) Everything else -> UI service
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .Values.ui.name }}
+                port:
+                  number: {{ .Values.ui.service.port }}
 {{- end }}
