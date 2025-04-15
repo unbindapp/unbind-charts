@@ -502,7 +502,7 @@ releases:
         args:
           - "-c"
           - |
-            # Check if secret exists, create if not
+            # Check if client secrets exist, create if not
             if ! kubectl get secret -n {{ .Values.namespace }} dex-client-secrets &> /dev/null; then
               # Generate random secrets
               CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
@@ -519,12 +519,35 @@ releases:
               echo "Dex client secrets already exist, using existing values"
             fi
 
-            # Check if TLS secret exists, create a placeholder if not
+            # Check if Certificate resource exists, create if not
+            if ! kubectl get certificate -n {{ .Values.namespace }} dex-certificate &> /dev/null; then
+              echo "Creating Certificate resource for Dex TLS..."
+              cat <<EOF | kubectl apply -f -
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: dex-certificate
+                namespace: {{ .Values.namespace }}
+                annotations:
+                  acme.cert-manager.io/issue-temporary-certificate: "true"
+              spec:
+                secretName: dex-tls
+                issuerRef:
+                  name: {{ .Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
+                  kind: ClusterIssuer
+                dnsNames:
+                  - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
+              EOF
+              echo "Certificate resource created for Dex"
+            else
+              echo "Certificate resource for Dex already exists"
+            fi
+
+            # Check if TLS secret exists, create an emergency temporary one if not
             if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
-              # Generate a temporary self-signed certificate
-              echo "Creating temporary TLS certificate for Dex"
+              echo "Creating emergency temporary TLS certificate for Dex"
               
-              # Generate private key and self-signed certificate
+              # Generate temporary self-signed certificate
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout /tmp/tls.key -out /tmp/tls.crt \
                 -subj "/CN=dex.{{ .Values.baseDomain }}"
@@ -538,9 +561,9 @@ releases:
               # Clean up
               rm -f /tmp/tls.key /tmp/tls.crt
               
-              echo "Created temporary TLS secret for Dex"
+              echo "Created emergency temporary TLS secret for Dex"
             else
-              echo "Dex TLS secret already exists, using existing values"
+              echo "Dex TLS secret already exists"
             fi
 
     values:
@@ -612,9 +635,8 @@ releases:
               secret: {{ printf "$%s" "CLIENT_SECRET" }}
               name: Unbind API
               redirectURIs: 
-                - {{ printf "https://unbind.%s/api/auth/callback/dex" .Values.baseDomain }}
-                - {{ printf "https://unbind-api.%s/auth/callback" .Values.baseDomain }}
-                - http://localhost:3000/api/auth/callback/dex
+                - {{ printf "https://unbind.%s/api-internal/auth/callback/dex" .Values.baseDomain }}
+                - {{ printf "https://unbind.%s/api/auth/callback" .Values.baseDomain }}
               responseTypes: {{ .Values | get "overrides.dex.staticClients.unbindApi.responseTypes" (list "code") | toYaml | nindent 16 }}
 
         # Environment variables to pull secrets from Kubernetes secrets
