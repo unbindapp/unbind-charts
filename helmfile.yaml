@@ -518,6 +518,31 @@ releases:
             else
               echo "Dex client secrets already exist, using existing values"
             fi
+
+            # Check if TLS secret exists, create a placeholder if not
+            if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
+              # Generate a temporary self-signed certificate
+              echo "Creating temporary TLS certificate for Dex"
+              
+              # Generate private key and self-signed certificate
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout /tmp/tls.key -out /tmp/tls.crt \
+                -subj "/CN=dex.{{ .Values.baseDomain }}"
+              
+              # Create the secret with the temporary certificate
+              kubectl create secret tls dex-tls \
+                --namespace={{ .Values.namespace }} \
+                --cert=/tmp/tls.crt \
+                --key=/tmp/tls.key
+              
+              # Clean up
+              rm -f /tmp/tls.key /tmp/tls.crt
+              
+              echo "Created temporary TLS secret for Dex"
+            else
+              echo "Dex TLS secret already exists, using existing values"
+            fi
+
     values:
       - 
         # Image configuration with dynamic version
