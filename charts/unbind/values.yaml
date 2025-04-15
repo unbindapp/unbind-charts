@@ -38,8 +38,8 @@ database:
 # Combined Ingress
 combinedIngress:
   enabled: true
+  className: "nginx"
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/eventsource: "true"
     nginx.ingress.kubernetes.io/add-base-url: "true"

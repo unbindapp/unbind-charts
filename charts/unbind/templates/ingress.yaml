@@ -12,6 +12,7 @@ metadata:
   {{- end }}
 spec:
   {{- if .Values.combinedIngress.tls.enabled }}
+  ingressClassName: {{ .Values.combinedIngress.className }}
   tls:
     - hosts:
         - {{ .Values.combinedIngress.host }}
