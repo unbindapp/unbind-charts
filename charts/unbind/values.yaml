@@ -187,12 +187,12 @@ api:
       value: http://kube-prometheus-stack-prometheus.unbind-system:9090
   livenessProbe:
     enabled: true
-    path: "/api/healthz"
+    path: "/health"
     initialDelaySeconds: 30
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    path: "/api/healthz"
+    path: "/health"
     initialDelaySeconds: 30
     periodSeconds: 10
 
@@ -256,11 +256,11 @@ auth:
       value: valkey-headless.unbind-system:6379
   livenessProbe:
     enabled: true
-    path: "/healthz"
+    path: "/health"
     initialDelaySeconds: 30
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    path: "/healthz"
+    path: "/health"
     initialDelaySeconds: 30
     periodSeconds: 10

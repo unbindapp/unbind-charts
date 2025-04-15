@@ -914,16 +914,6 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-unbind-gateway.%s.svc.cluster.local" .Values.namespace) }}
             - name: PROMETHEUS_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.prometheus.endpoint" (printf "http://kube-prometheus-stack-prometheus.%s:9090" .Values.namespace) }}
-          livenessProbe:
-            enabled: true
-            path: "/api/healthz"
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.api.livenessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.api.livenessProbe.periodSeconds" 10 }}
-          readinessProbe:
-            enabled: true
-            path: "/api/healthz"
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.api.readinessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.api.readinessProbe.periodSeconds" 10 }}
       
       # Auth Service Configuration
       - auth:
@@ -983,16 +973,6 @@ releases:
                   key: connector-oidc-secret
             - name: VALKEY_URL
               value: {{ .Values | get "overrides.unbind.auth.valkey.url" (printf "valkey-headless.%s:6379" .Values.namespace) }}
-          livenessProbe:
-            enabled: true
-            path: "/healthz"
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.auth.livenessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.auth.livenessProbe.periodSeconds" 10 }}
-          readinessProbe:
-            enabled: true
-            path: "/healthz"
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.auth.readinessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.auth.readinessProbe.periodSeconds" 10 }}
       
       # Service Account and RBAC
       - serviceAccount:
