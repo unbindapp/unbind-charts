@@ -535,7 +535,7 @@ releases:
                   kind: ClusterIssuer
                 dnsNames:
                   - {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
-              EOF
+    EOF
               echo "Certificate resource created for Dex"
             else
               echo "Certificate resource for Dex already exists"
