@@ -164,19 +164,40 @@ spec:
               
               # Alternative size calculation using kubectl
               echo "Running alternative size calculation via kubectl exec..."
-              
+
               REGISTRY_POD=$(kubectl -n unbind-system get pod -l app=registry -o jsonpath='{.items[0].metadata.name}')
-              
+
               if [ -n "$REGISTRY_POD" ]; then
                 DISK_USAGE=$(kubectl -n unbind-system exec $REGISTRY_POD -- du -sb /var/lib/registry)
-                TOTAL_SIZE=$(echo "$DISK_USAGE" | awk '{print $1}')
-                TOTAL_SIZE_MB=$((TOTAL_SIZE / 1024 / 1024))
-                TOTAL_SIZE_GB=$((TOTAL_SIZE / 1024 / 1024 / 1024))
+                
+                # Handle potential scientific notation by using awk to convert to numeric value
+                TOTAL_SIZE=$(echo "$DISK_USAGE" | awk '{
+                  # Check if first column contains scientific notation
+                  if ($1 ~ /e\+/) {
+                    # Convert scientific notation to a regular number
+                    printf "%.0f", $1
+                  } else {
+                    # Return the regular number as is
+                    print $1
+                  }
+                }')
+                
+                # Verify TOTAL_SIZE is a valid number
+                if ! [[ "$TOTAL_SIZE" =~ ^[0-9]+$ ]]; then
+                  echo "Warning: Could not parse disk usage correctly: $DISK_USAGE"
+                  echo "Extracted size: $TOTAL_SIZE"
+                  # Fallback method using perl to handle scientific notation
+                  TOTAL_SIZE=$(echo "$DISK_USAGE" | perl -ne 'if(/^(\S+)/) {printf "%.0f", $1}')
+                  echo "Using perl fallback method, size: $TOTAL_SIZE"
+                fi
+                
+                TOTAL_SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $TOTAL_SIZE / 1024 / 1024}")
+                TOTAL_SIZE_GB=$(awk "BEGIN {printf \"%.2f\", $TOTAL_SIZE / 1024 / 1024 / 1024}")
                 
                 echo "Total registry size from disk: $TOTAL_SIZE_MB MB ($TOTAL_SIZE_GB GB)"
                 
                 # Override API-based calculation with actual disk usage
-                if [ $TOTAL_SIZE -gt 0 ]; then
+                if [ "$TOTAL_SIZE" -gt 0 ]; then
                   echo "Using disk-based size calculation instead of API-based calculation"
                 fi
               else
