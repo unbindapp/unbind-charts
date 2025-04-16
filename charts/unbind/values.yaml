@@ -97,7 +97,7 @@ ui:
           key: unbind-api-secret
     - name: DEX_ISSUER
       value: "https://dex.example.com"
-    - name: NEXT_PUBLIC_UNBIND_API_URL
+    - name: UNBIND_API_PUBLIC_URL
       value: "https://unbind.example.com/api"
     - name: SITE_URL
       value: "https://unbind.example.com"

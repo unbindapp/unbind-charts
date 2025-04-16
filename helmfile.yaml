@@ -896,7 +896,7 @@ releases:
                   key: {{ .Values | get "overrides.unbind.ui.dex.secretKey" "unbind-api-secret" }}
             - name: DEX_ISSUER
               value: {{ printf "https://dex.%s" .Values.baseDomain }}
-            - name: NEXT_PUBLIC_UNBIND_API_URL
+            - name: UNBIND_API_PUBLIC_URL
               value: {{ printf "https://unbind.%s/api" .Values.baseDomain }}
             - name: SITE_URL
               value: {{ printf "https://unbind.%s" .Values.baseDomain }}
