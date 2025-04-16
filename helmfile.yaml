@@ -859,7 +859,7 @@ releases:
             type: ClusterIP
             port: 3000
           ingress:
-            enabled: false  # Using the combined ingress
+            enabled: true
           env:
             - name: AUTH_SECRET
               valueFrom:
@@ -911,7 +911,7 @@ releases:
             type: ClusterIP
             port: 8089
           ingress:
-            enabled: false  # Using the combined ingress
+            enabled: true
           command: ["/app/api"]
           env:
             - name: EXTERNAL_UI_URL
@@ -992,7 +992,7 @@ releases:
             type: ClusterIP
             port: 8090
           ingress:
-            enabled: false  # Using the combined ingress
+            enabled: true
           command: ["/app/oauth2server"]
           env:
             - name: EXTERNAL_OAUTH2_URL
