@@ -881,14 +881,6 @@ releases:
               value: {{ printf "https://unbind.%s/api" .Values.baseDomain }}
             - name: SITE_URL
               value: {{ printf "https://unbind.%s" .Values.baseDomain }}
-          livenessProbe:
-            enabled: true
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.ui.livenessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.ui.livenessProbe.periodSeconds" 10 }}
-          readinessProbe:
-            enabled: true
-            initialDelaySeconds: {{ .Values | get "overrides.unbind.ui.readinessProbe.initialDelaySeconds" 30 }}
-            periodSeconds: {{ .Values | get "overrides.unbind.ui.readinessProbe.periodSeconds" 10 }}
       
       # API Configuration
       - api:

@@ -161,15 +161,6 @@ overrides:
         clientId: unbind-api
         secretName: dex-client-secrets
         secretKey: unbind-api-secret
-      livenessProbe:
-        initialDelaySeconds: 30
-        periodSeconds: 10
-      readinessProbe:
-        initialDelaySeconds: 30
-        periodSeconds: 10
-        limits:
-          cpu: 250m
-          memory: 512Mi
 
     # API Configuration
     api:
@@ -208,13 +199,6 @@ overrides:
         endpoint: http://loki-gateway.unbind-system.svc.cluster.local
       prometheus:
         endpoint: http://kube-prometheus-stack-prometheus.unbind-system:9090
-      # Health check configuration
-      livenessProbe:
-        initialDelaySeconds: 30
-        periodSeconds: 10
-      readinessProbe:
-        initialDelaySeconds: 30
-        periodSeconds: 10
       resources:
         limits:
           cpu: 250m
@@ -240,15 +224,6 @@ overrides:
       # Valkey Redis configuration
       valkey:
         url: valkey-headless.unbind-system:6379
-      # Health check configuration
-      livenessProbe:
-        path: /health
-        initialDelaySeconds: 30
-        periodSeconds: 10
-      readinessProbe:
-        path: /health
-        initialDelaySeconds: 30
-        periodSeconds: 10
       resources:
         limits:
           cpu: 250m

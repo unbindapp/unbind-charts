@@ -38,6 +38,14 @@ spec:
           env:
             {{- toYaml .Values.auth.env | nindent 12 }}
           {{- end }}
+          {{- if .Values.auth.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.auth.startupProbe.path }}
+              port: {{ .Values.auth.containerPort }}
+            failureThreshold: {{ .Values.auth.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.auth.startupProbe.periodSeconds }}
+          {{- end }}
           {{- if .Values.auth.livenessProbe.enabled }}
           livenessProbe:
             httpGet:

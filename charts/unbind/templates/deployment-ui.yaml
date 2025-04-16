@@ -36,6 +36,14 @@ spec:
           env:
             {{- toYaml .Values.ui.env | nindent 12 }}
           {{- end }}
+          {{- if .Values.ui.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.ui.startupProbe.path }}
+              port: {{ .Values.ui.containerPort }}
+            failureThreshold: {{ .Values.ui.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.ui.startupProbe.periodSeconds }}
+          {{- end }}
           {{- if .Values.ui.livenessProbe.enabled }}
           livenessProbe:
             httpGet:

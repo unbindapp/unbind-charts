@@ -94,14 +94,21 @@ ui:
       value: "https://unbind.example.com/api"
     - name: SITE_URL
       value: "https://unbind.example.com"
+  startupProbe:
+    enabled: true
+    path: "/health"
+    failureThreshold: 30
+    periodSeconds: 10
   livenessProbe:
     enabled: true
-    initialDelaySeconds: 30
+    path: "/health"
+    initialDelaySeconds: 15
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    initialDelaySeconds: 30
-    periodSeconds: 10
+    path: "/health"
+    initialDelaySeconds: 0
+    periodSeconds: 3
 
 # API Configuration
 api:
@@ -187,16 +194,21 @@ api:
       value: http://loki-gateway.unbind-system.svc.cluster.local
     - name: PROMETHEUS_ENDPOINT
       value: http://kube-prometheus-stack-prometheus.unbind-system:9090
+  startupProbe:
+    enabled: true
+    path: "/health"
+    failureThreshold: 30
+    periodSeconds: 10
   livenessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 30
+    initialDelaySeconds: 15
     periodSeconds: 10
   readinessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 30
-    periodSeconds: 10
+    initialDelaySeconds: 0
+    periodSeconds: 3
 
 # Auth Configuration
 auth:
@@ -261,13 +273,18 @@ auth:
           key: connector-oidc-secret
     - name: VALKEY_URL
       value: valkey-headless.unbind-system:6379
+  startupProbe:
+    enabled: true
+    path: "/health"
+    failureThreshold: 30
+    periodSeconds: 10
   livenessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 30
+    initialDelaySeconds: 15
     periodSeconds: 10
   readinessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 30
-    periodSeconds: 10
+    initialDelaySeconds: 0
+    periodSeconds: 3
