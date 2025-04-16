@@ -967,7 +967,7 @@ releases:
                     {{- printf "tcp://buildkitd.%s:1234" .Values.namespace }}
                     {{- end }}
             - name: LOKI_ENDPOINT
-              value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-unbind-gateway.%s.svc.cluster.local" .Values.namespace) }}
+              value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-gateway.%s.svc.cluster.local" .Values.namespace) }}
             - name: PROMETHEUS_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.prometheus.endpoint" (printf "http://kube-prometheus-stack-prometheus.%s:9090" .Values.namespace) }}
       

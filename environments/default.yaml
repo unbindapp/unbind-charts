@@ -58,7 +58,7 @@ overrides:
   alloy:
     loki:
       endpoint:
-        host: loki-unbind-gateway
+        host: loki-gateway
         port: 80
         # namespace: // Defaults to global.namespace
   loki:
@@ -205,7 +205,7 @@ overrides:
         host:
       # Logging and monitoring
       loki:
-        endpoint: http://loki-unbind-gateway.unbind-system.svc.cluster.local
+        endpoint: http://loki-gateway.unbind-system.svc.cluster.local
       prometheus:
         endpoint: http://kube-prometheus-stack-prometheus.unbind-system:9090
       # Health check configuration

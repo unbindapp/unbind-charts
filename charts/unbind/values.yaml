@@ -184,7 +184,7 @@ api:
     - name: BUILDKIT_HOST
       value: tcp://buildkitd.unbind-system:1234
     - name: LOKI_ENDPOINT
-      value: http://loki-unbind-gateway.unbind-system.svc.cluster.local
+      value: http://loki-gateway.unbind-system.svc.cluster.local
     - name: PROMETHEUS_ENDPOINT
       value: http://kube-prometheus-stack-prometheus.unbind-system:9090
   livenessProbe:
