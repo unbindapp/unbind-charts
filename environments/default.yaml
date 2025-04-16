@@ -112,7 +112,6 @@ overrides:
     ingress:
       enabled: true
       className: "nginx"
-      certIssuer: "letsencrypt-prod"
   
     
     # Resource settings

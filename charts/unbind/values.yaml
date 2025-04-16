@@ -15,12 +15,10 @@ rbac:
 
 # Builder configuration
 builder:
-  # RBAC configuration for builder
   rbac:
     create: true
     clusterRoleName: "app-crd-creator"
     clusterRoleBindingName: "app-crd-creator-binding"
-  # ServiceAccount for builder
   serviceAccount:
     create: true
     name: "builder-serviceaccount"
@@ -35,24 +33,9 @@ database:
   userKey: "username"
   passwordKey: "password"
 
-# Combined Ingress
-combinedIngress:
-  enabled: true
+# Ingress common configuration
+ingress:
   className: "nginx"
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/eventsource: "true"
-    nginx.ingress.kubernetes.io/add-base-url: "true"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/websocket-services: "unbind"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
-    nginx.ingress.kubernetes.io/proxy-body-size: 10m
-    nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
-    nginx.ingress.kubernetes.io/affinity: "cookie"
-    nginx.ingress.kubernetes.io/session-cookie-name: "unbind-session"
-    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
   host: "unbind.example.com"
   tls:
     enabled: true
@@ -79,7 +62,17 @@ ui:
     type: ClusterIP
     port: 3000
   ingress:
-    enabled: false  # We're using the combined ingress
+    enabled: true  # Enable this for separate ingress
+    annotations:
+      nginx.ingress.kubernetes.io/affinity: cookie
+      nginx.ingress.kubernetes.io/proxy-body-size: 10m
+      nginx.ingress.kubernetes.io/proxy-buffering: "off"
+      nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+      nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+      nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+      nginx.ingress.kubernetes.io/session-cookie-name: unbind-session
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
   env:
     - name: AUTH_SECRET
       valueFrom:
@@ -131,7 +124,16 @@ api:
     type: ClusterIP
     port: 8089
   ingress:
-    enabled: false  # We're using the combined ingress
+    enabled: true  # Enable this for separate ingress
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      nginx.ingress.kubernetes.io/affinity: cookie
+      nginx.ingress.kubernetes.io/eventsource: "true"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/websocket-services: unbind-api
   command: ["/app/api"]
   env:
     - name: EXTERNAL_UI_URL
@@ -217,11 +219,16 @@ auth:
     type: ClusterIP
     port: 8090
   ingress:
-    enabled: false  # We're using the combined ingress
+    enabled: true  # Enable this for separate ingress
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      nginx.ingress.kubernetes.io/affinity: cookie
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
   command: ["/app/oauth2server"]
   env:
     - name: EXTERNAL_OAUTH2_URL
-      value: "https://unbind.example.com/oauth2/api"
+      value: "https://unbind.example.com/api/oauth2"
     - name: POSTGRES_HOST
       value: "pg-unbind"
     - name: POSTGRES_PORT

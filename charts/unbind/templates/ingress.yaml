@@ -1,63 +1,117 @@
-{{- if .Values.combinedIngress.enabled }}
+{{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+# API Ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: unbind-combined-ingress
+  name: {{ .Values.api.name }}-ingress
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "unbind.labels" . | nindent 4 }}
   annotations:
-    {{- if not .Values.combinedIngress.annotations }}
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    {{- end }}
-    {{- with .Values.combinedIngress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    nginx.ingress.kubernetes.io/eventsource: "true"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    nginx.ingress.kubernetes.io/websocket-services: "unbind-api" 
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+    nginx.ingress.kubernetes.io/session-cookie-name: unbind-session
+    nginx.ingress.kubernetes.io/eventsource: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: {{ .Values.api.name }}
+    nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
+    {{- with .Values.api.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
-  {{- if .Values.combinedIngress.tls.enabled }}
-  ingressClassName: {{ .Values.combinedIngress.className }}
-  tls:
-    - hosts:
-        - {{ .Values.combinedIngress.host }}
-      secretName: {{ .Values.combinedIngress.tls.secretName }}
-  {{- end }}
+  ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ .Values.combinedIngress.host }}
-      http:
-        paths:
-           # 1) /api -> direct to the API service, stripping /api
-          - path: /api(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ .Values.api.name }}
-                port:
-                  number: {{ .Values.api.service.port }}
-
-          # 2) /oauth2/api -> direct to the Auth service, stripping /oauth2/api
-          - path: /oauth2/api(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ .Values.auth.name }}
-                port:
-                  number: {{ .Values.auth.service.port }}
-
-          # 3) Everything else -> UI service
-          - path: /()(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ .Values.ui.name }}
-                port:
-                  number: {{ .Values.ui.service.port }}
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Values.api.name }}
+            port:
+              number: {{ .Values.api.service.port }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+{{- end }}
+---
+{{- if and .Values.auth.enabled .Values.auth.ingress.enabled }}
+# Auth Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.auth.name }}-ingress
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- with .Values.auth.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /api/oauth2(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Values.auth.name }}
+            port:
+              number: {{ .Values.auth.service.port }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+{{- end }}
+---
+{{- if and .Values.ui.enabled .Values.ui.ingress.enabled }}
+# UI Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ui.name }}-ingress
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- with .Values.ui.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.ui.name }}
+            port:
+              number: {{ .Values.ui.service.port }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    secretName: {{ .Values.ingress.tls.secretName }}
 {{- end }}

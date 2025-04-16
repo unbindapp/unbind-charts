@@ -425,6 +425,8 @@ releases:
           ingressClassResource:
             name: nginx
             default: true
+            annotations:
+              cert-manager.io/cluster-issuer: "letsencrypt-prod"
           admissionWebhooks:
             enabled: true
           service:
@@ -636,13 +638,13 @@ releases:
               "id" "unbind-oidc"
               "name" "Unbind Built-in OIDC Provider"
               "config" (dict
-                "issuer" (printf "https://unbind.%s/oauth2/api" .Values.baseDomain)
+                "issuer" (printf "https://unbind.%s/api/oauth2" .Values.baseDomain)
                 "clientID" "dex-client"
                 "clientSecret" (printf "$%s" "CONNECTOR_SECRET")
                 "redirectURI" (printf "https://dex.%s/callback" .Values.baseDomain)
                 "scopes" (list "openid" "profile" "email" "offline_access" "groups")
                 "insecureEnableGroups" true
-                "discoveryURL" (printf "https://unbind.%s/oauth2/api/.well-known/openid-configuration" .Values.baseDomain)
+                "discoveryURL" (printf "https://unbind.%s/api/oauth2/.well-known/openid-configuration" .Values.baseDomain)
                 "userIDKey" "jti"
                 "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")
               )
@@ -698,7 +700,6 @@ releases:
           enabled: {{ .Values | get "overrides.dex.ingress.enabled" true }}
           className: {{ .Values | get "overrides.dex.ingress.className" "nginx" }}
           annotations:
-            cert-manager.io/cluster-issuer: {{ .Values | get "overrides.dex.ingress.certIssuer" "letsencrypt-prod" }}
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
           hosts:
             - host: {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
@@ -835,27 +836,8 @@ releases:
           baseDomain: '{{ .Values.baseDomain }}'
       
       # Combined Ingress with proper configuration
-      - combinedIngress:
-          enabled: true
-          annotations:
-            kubernetes.io/ingress.class: "nginx"
-            cert-manager.io/cluster-issuer: "letsencrypt-prod"
-            nginx.ingress.kubernetes.io/eventsource: "true"
-            nginx.ingress.kubernetes.io/add-base-url: "true"
-            nginx.ingress.kubernetes.io/ssl-redirect: "true"
-            nginx.ingress.kubernetes.io/websocket-services: "unbind"
-            nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
-            nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
-            nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-            nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
-            nginx.ingress.kubernetes.io/affinity: "cookie"
-            nginx.ingress.kubernetes.io/session-cookie-name: "unbind-session"
-            nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-            nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+      - ingress:
           host: {{ printf "unbind.%s" .Values.baseDomain }}
-          tls:
-            enabled: true
-            secretName: "unbind-app-tls"
       
       # UI Configuration
       - ui:
@@ -1015,7 +997,7 @@ releases:
           command: ["/app/oauth2server"]
           env:
             - name: EXTERNAL_OAUTH2_URL
-              value: {{ printf "https://unbind.%s/oauth2/api" .Values.baseDomain }}
+              value: {{ printf "https://unbind.%s/api/oauth2" .Values.baseDomain }}
             - name: POSTGRES_HOST
               value: {{ .Values | get "overrides.unbind.auth.database.host" (printf "pg-unbind.%s" .Values.namespace) }}
             - name: POSTGRES_PORT
