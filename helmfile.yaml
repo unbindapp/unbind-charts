@@ -425,8 +425,6 @@ releases:
           ingressClassResource:
             name: nginx
             default: true
-            annotations:
-              cert-manager.io/cluster-issuer: "letsencrypt-prod"
           admissionWebhooks:
             enabled: true
           service:
@@ -700,6 +698,7 @@ releases:
           enabled: {{ .Values | get "overrides.dex.ingress.enabled" true }}
           className: {{ .Values | get "overrides.dex.ingress.className" "nginx" }}
           annotations:
+            kubernetes.io/tls-acme: "true"
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
           hosts:
             - host: {{ .Values | get "overrides.dex.host" (printf "dex.%s" .Values.baseDomain) }}
