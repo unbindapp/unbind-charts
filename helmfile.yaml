@@ -649,7 +649,7 @@ releases:
             )) | toYaml | nindent 12 }}
           staticClients:
             - id: unbind-api
-              secret: {{ printf "$%s" "CLIENT_SECRET" }}
+              secretEnv: CLIENT_SECRET
               name: Unbind API
               redirectURIs: 
                 - {{ printf "https://unbind.%s/api-internal/auth/callback/dex" .Values.baseDomain }}
