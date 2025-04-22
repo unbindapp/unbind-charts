@@ -402,7 +402,7 @@ releases:
           - "-c"
           - |
             # Exit on error, treat unset variables as errors, propagate pipeline errors
-            set -euo pipefail 
+            set -eu 
 
             NAMESPACE="{{ .Values.namespace }}" # Namespace needed by the script
             GREEN='\033[0;32m'
@@ -569,7 +569,7 @@ releases:
           - "-c"
           - |
             # Exit on error, treat unset variables as errors, propagate pipeline errors
-            set -euo pipefail 
+            set -eu 
 
             NAMESPACE="{{ .Values.namespace }}"
             BASE_DOMAIN="{{ .Values.baseDomain }}"
@@ -878,7 +878,7 @@ releases:
           - "-c"
           - |
             # Exit on error, treat unset variables as errors, propagate pipeline errors
-            set -euo pipefail 
+            set -eu 
 
             NAMESPACE="{{ .Values.namespace }}"
             GREEN='\033[0;32m'
