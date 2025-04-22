@@ -401,25 +401,30 @@ releases:
         args:
           - "-c"
           - |
+            # Exit immediately if a command exits with a non-zero status.
+            set -e 
+
             # Check if secret already exists
             if ! kubectl get secret registry-basic-auth -n {{ .Values.namespace }} &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
               
               # Create a temporary file for htpasswd
               TMPFILE=$(mktemp)
+              # Ensure TMPFILE is removed on script exit, regardless of success or failure
+              trap 'rm -f -- "$TMPFILE"' EXIT
               
               # Generate htpasswd file with username and password
               # Default username: admin, password will be randomly generated
               USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
               PASSWORD=$(openssl rand -base64 48 | tr -d '\n')
               
-              # Create htpasswd file
-              htpasswd -Bbn $USERNAME $PASSWORD > $TMPFILE
+              # Create htpasswd file - If htpasswd fails here, 'set -e' will cause script to exit non-zero
+              htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE" 
               
               # Create the basic auth secret
               kubectl create secret generic registry-basic-auth \
                 -n {{ .Values.namespace }} \
-                --from-file=auth=$TMPFILE
+                --from-file=auth="$TMPFILE"
               
               # Create the Docker Registry secret
               kubectl create secret generic registry-credentials \
@@ -427,8 +432,7 @@ releases:
                 --from-literal=username="${USERNAME}" \
                 --from-literal=password="${PASSWORD}"
 
-              # Remove temp file
-              rm $TMPFILE
+              # No need to explicitly rm $TMPFILE anymore due to the trap
             else
               echo "Secret registry-basic-auth already exists in namespace {{ .Values.namespace }}"
             fi
@@ -545,86 +549,100 @@ releases:
         args:
           - "-c"
           - |
+            # Exit on error, treat unset variables as errors, propagate pipeline errors
+            set -euo pipefail 
+
+            NAMESPACE="{{ .Values.namespace }}"
+            BASE_DOMAIN="{{ .Values.baseDomain }}"
+            GREEN='\033[0;32m'
+            NC='\033[0m'
+
+            # === Part 1: Client Secrets ===
+            
             # Check if client secrets exist, create if not
-            if ! kubectl get secret -n {{ .Values.namespace }} dex-client-secrets &> /dev/null; then
+            if ! kubectl get secret dex-client-secrets -n "$NAMESPACE" &> /dev/null; then
+              echo "Creating Dex client secrets..."
               # Generate random secrets
               CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-              # Create the secret
+              # Create the secret (set -e ensures failure exits the script)
               kubectl create secret generic dex-client-secrets \
-                --namespace={{ .Values.namespace }} \
+                --namespace="$NAMESPACE" \
                 --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
                 --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
-              echo "Created new client and connector secrets for Dex"
+              echo -e "${GREEN}✓ Created new client and connector secrets for Dex${NC}"
             else
-              echo "Dex client secrets already exist, using existing values"
+              echo "Dex client secrets already exist, using existing values."
             fi
             
-            # Define variables
-            CERT_DIR="/tmp/certs"
-            DEX_DOMAIN="dex.{{ .Values.baseDomain }}"
-            NAMESPACE="{{ .Values.namespace }}"
-            GREEN='\033[0;32m'
-            NC='\033[0m'
-            
-            # Create certificate directory
-            mkdir -p $CERT_DIR
-            
-            # Check if secret resource exists, create if not
-            if ! kubectl get secret -n {{ .Values.namespace }} dex-tls &> /dev/null; then
-              echo "Generating certificates for Dex..."
+            # === Part 2: TLS Certificates ===
+
+            # Check if TLS secret resource exists, create if not
+            if ! kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
+              echo "Generating TLS certificates for Dex..."
               
-              # Create a Root CA
-              echo -e "Generating Root CA..."
-              openssl genrsa -out $CERT_DIR/ca.key 4096
-              openssl req -x509 -new -nodes -key $CERT_DIR/ca.key -sha256 -days 6650 \
-              -out $CERT_DIR/ca.crt -subj "/CN=Unbind Root CA"
+              # Use mktemp for a secure temporary directory
+              CERT_DIR=$(mktemp -d)
+              # Ensure CERT_DIR is removed on script exit (success, error, or signal)
+              trap 'rm -rf -- "$CERT_DIR"' EXIT
+
+              DEX_DOMAIN="dex.${BASE_DOMAIN}"
               
-              # Create a certificate for Dex
-              echo -e "Generating certificate for $DEX_DOMAIN..."
-              openssl genrsa -out $CERT_DIR/dex.key 2048
-              openssl req -new -key $CERT_DIR/dex.key -out $CERT_DIR/dex.csr \
-              -subj "/CN=$DEX_DOMAIN"
+              # --- Create Root CA ---
+              echo "Generating Root CA..."
+              openssl genrsa -out "$CERT_DIR/ca.key" 4096
+              openssl req -x509 -new -nodes -key "$CERT_DIR/ca.key" -sha256 -days 6650 \
+                -out "$CERT_DIR/ca.crt" -subj "/CN=Unbind Root CA"
+              
+              # --- Create Dex Server Certificate ---
+              echo "Generating certificate for $DEX_DOMAIN..."
+              openssl genrsa -out "$CERT_DIR/dex.key" 2048
+              openssl req -new -key "$CERT_DIR/dex.key" -out "$CERT_DIR/dex.csr" \
+                -subj "/CN=$DEX_DOMAIN"
               
               # Create config for SAN
-            cat > $CERT_DIR/dex.ext << EOF
-            authorityKeyIdentifier=keyid,issuer
-            basicConstraints=CA:FALSE
-            keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-            subjectAltName = @alt_names
-            [alt_names]
-            DNS.1 = $DEX_DOMAIN
-            DNS.2 = dex
-            DNS.3 = dex.$NAMESPACE
-            DNS.4 = dex.$NAMESPACE.svc
-            DNS.5 = dex.$NAMESPACE.svc.cluster.local
-            EOF
-              
+              # Note: Using printf instead of cat EOF for potentially better variable handling, though cat EOF is fine too.
+              printf '%s\n' \
+                'authorityKeyIdentifier=keyid,issuer' \
+                'basicConstraints=CA:FALSE' \
+                'keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment' \
+                'subjectAltName = @alt_names' \
+                '[alt_names]' \
+                "DNS.1 = $DEX_DOMAIN" \
+                "DNS.2 = dex" \
+                "DNS.3 = dex.$NAMESPACE" \
+                "DNS.4 = dex.$NAMESPACE.svc" \
+                "DNS.5 = dex.$NAMESPACE.svc.cluster.local" > "$CERT_DIR/dex.ext"
+
               # Sign the certificate
-              openssl x509 -req -in $CERT_DIR/dex.csr -CA $CERT_DIR/ca.crt -CAkey $CERT_DIR/ca.key \
-              -CAcreateserial -out $CERT_DIR/dex.crt -days 6650 -sha256 \
-              -extfile $CERT_DIR/dex.ext
+              echo "Signing Dex certificate..."
+              openssl x509 -req -in "$CERT_DIR/dex.csr" -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
+                -CAcreateserial -out "$CERT_DIR/dex.crt" -days 6650 -sha256 \
+                -extfile "$CERT_DIR/dex.ext"
               echo -e "${GREEN}✓ Certificates generated${NC}"
               
-              # Create the TLS secret for Dex
+              # --- Create Kubernetes TLS Secret ---
+              echo "Creating Kubernetes TLS secret dex-tls..."
               kubectl create secret tls dex-tls \
-                --namespace={{ .Values.namespace }} \
-                --cert=$CERT_DIR/dex.crt \
-                --key=$CERT_DIR/dex.key
+                --namespace="$NAMESPACE" \
+                --cert="$CERT_DIR/dex.crt" \
+                --key="$CERT_DIR/dex.key"
                 
               # Add the CA to the secret
-              CA_CRT=$(cat $CERT_DIR/ca.crt | base64 -w 0)
+              # Use process substitution or temp var for base64 input if necessary, or direct pipe
+              # Use -w 0 for base64 to avoid line wrapping issues in JSON patch
+              CA_CRT_BASE64=$(base64 -w 0 < "$CERT_DIR/ca.crt")
               
               # Patch the secret to include the CA certificate
-              kubectl patch secret dex-tls -n {{ .Values.namespace }} \
-                -p="{\"data\":{\"ca.crt\":\"$CA_CRT\"}}"
+              echo "Patching dex-tls secret to include ca.crt..."
+              kubectl patch secret dex-tls -n "$NAMESPACE" --type='json' \
+                -p="[{\"op\": \"add\", \"path\": \"/data/ca.crt\", \"value\": \"$CA_CRT_BASE64\"}]"
                 
-              echo "Created new TLS certificates for Dex"
+              echo -e "${GREEN}✓ Created and patched TLS certificates for Dex${NC}"
               
-              # Clean up temporary files
-              rm -rf $CERT_DIR
+              # No need for explicit rm -rf $CERT_DIR due to the trap
             else
-              echo "Certificate resource for Dex already exists"
+              echo "TLS secret dex-tls already exists."
             fi
     values:
       - 
@@ -840,36 +858,50 @@ releases:
         args:
           - "-c"
           - |
+            # Exit on error, treat unset variables as errors, propagate pipeline errors
+            set -euo pipefail 
+
+            NAMESPACE="{{ .Values.namespace }}"
+            GREEN='\033[0;32m'
+            NC='\033[0m'
+
+            # === Part 1: Auth.js Secret ===
+
             # Check if auth secret exists, create if not
-            if ! kubectl get secret -n {{ .Values.namespace }} unbind-authjs-secrets &> /dev/null; then
+            if ! kubectl get secret unbind-authjs-secrets -n "$NAMESPACE" &> /dev/null; then
+              echo "Creating unbind-authjs-secrets secret..."
               # Generate random secrets
+              # If openssl or kubectl fail here, set -e will cause an exit
               AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               
               # Create the secret
               kubectl create secret generic unbind-authjs-secrets \
-                --namespace={{ .Values.namespace }} \
+                --namespace="$NAMESPACE" \
                 --from-literal=auth-secret="${AUTH_SECRET}"
               
-              echo "Created new auth secret for Next.js"
+              echo -e "${GREEN}✓ Created new auth secret for Next.js${NC}"
             else
-              echo "Auth secret already exists"
+              echo "Auth secret unbind-authjs-secrets already exists."
             fi
             
+            # === Part 2: Dex Client Secrets ===
+
             # Check if dex client secrets exist, create if not
-            if ! kubectl get secret -n {{ .Values.namespace }} dex-client-secrets &> /dev/null; then
+            if ! kubectl get secret dex-client-secrets -n "$NAMESPACE" &> /dev/null; then
+              echo "Creating dex-client-secrets secret..."
               # Generate random secrets
               CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               
               # Create the secret
               kubectl create secret generic dex-client-secrets \
-                --namespace={{ .Values.namespace }} \
+                --namespace="$NAMESPACE" \
                 --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
                 --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
               
-              echo "Created new client and connector secrets for Dex"
+              echo -e "${GREEN}✓ Created new client and connector secrets for Dex${NC}"
             else
-              echo "Dex client secrets already exist"
+              echo "Dex client secrets dex-client-secrets already exist."
             fi
     values:
       # Global values
