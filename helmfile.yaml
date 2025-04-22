@@ -419,11 +419,6 @@ releases:
               USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
               PASSWORD=$(openssl rand -base64 48 | tr -d '\n')
               
-              # Ensure htpasswd command exists (optional but recommended)
-              if ! command -v htpasswd &> /dev/null; then
-                echo "Error: 'htpasswd' command not found. Please install apache2-utils or httpd-tools." >&2
-                exit 1
-              fi
               htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE" 
               
               # Create the secrets (kubectl commands will now use the ensured namespace)
