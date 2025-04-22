@@ -537,7 +537,8 @@ releases:
     version: 1.17.1
     values:
       - 
-        installCRDs: true
+        crds:
+          enabled: true
         replicaCount: {{ .Values | get "overrides.certManager.replicaCount" 1 }}
         ingressShim:
           defaultIssuerName: letsencrypt-prod
@@ -897,50 +898,68 @@ releases:
           - "-c"
           - |
             # Exit on error, treat unset variables as errors, propagate pipeline errors
-            set -eu 
-
+            set -eu
             NAMESPACE="{{ .Values.namespace }}"
             GREEN='\033[0;32m'
             NC='\033[0m'
+            YELLOW='\033[0;33m'
+
+            # Function to safely create a secret and handle "already exists" errors
+            safe_create_secret() {
+              local name="$1"
+              local args=("${@:2}")  # Get all arguments except the first one
+              
+              echo "Creating $name secret..."
+              if kubectl create secret "${args[@]}" 2>/dev/null; then
+                echo -e "${GREEN}✓ Created $name secret${NC}"
+                return 0
+              elif kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
+                echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
+                return 0
+              else
+                echo "Failed to create $name secret for unknown reason"
+                return 1
+              fi
+            }
 
             # === Part 1: Auth.js Secret ===
-
-            # Check if auth secret exists, create if not
+            echo "Checking for unbind-authjs-secrets secret in namespace '$NAMESPACE'..."
             if ! kubectl get secret unbind-authjs-secrets -n "$NAMESPACE" &> /dev/null; then
               echo "Creating unbind-authjs-secrets secret..."
               # Generate random secrets
-              # If openssl or kubectl fail here, set -e will cause an exit
               AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               
-              # Create the secret
-              kubectl create secret generic unbind-authjs-secrets \
+              # Create the secret with error handling
+              if ! safe_create_secret "unbind-authjs-secrets" generic unbind-authjs-secrets \
                 --namespace="$NAMESPACE" \
-                --from-literal=auth-secret="${AUTH_SECRET}"
-              
-              echo -e "${GREEN}✓ Created new auth secret for Next.js${NC}"
+                --from-literal=auth-secret="${AUTH_SECRET}"; then
+                echo "Warning: Failed to create auth secret, but continuing with deployment"
+              fi
             else
               echo "Auth secret unbind-authjs-secrets already exists."
             fi
-            
-            # === Part 2: Dex Client Secrets ===
 
-            # Check if dex client secrets exist, create if not
+            # === Part 2: Dex Client Secrets ===
+            echo "Checking for dex-client-secrets secret in namespace '$NAMESPACE'..."
             if ! kubectl get secret dex-client-secrets -n "$NAMESPACE" &> /dev/null; then
               echo "Creating dex-client-secrets secret..."
               # Generate random secrets
               CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
               
-              # Create the secret
-              kubectl create secret generic dex-client-secrets \
+              # Create the secret with error handling
+              if ! safe_create_secret "dex-client-secrets" generic dex-client-secrets \
                 --namespace="$NAMESPACE" \
                 --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
-                --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
-              
-              echo -e "${GREEN}✓ Created new client and connector secrets for Dex${NC}"
+                --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"; then
+                echo "Warning: Failed to create dex client secrets, but continuing with deployment"
+              fi
             else
               echo "Dex client secrets dex-client-secrets already exist."
             fi
+
+            # Always exit with success to ensure helmfile continues
+            exit 0
     values:
       # Global values
       - global:
