@@ -897,69 +897,70 @@ releases:
         args:
           - "-c"
           - |
-            # Exit on error, treat unset variables as errors, propagate pipeline errors
+            # Exit on error, treat unset variables as errors
             set -eu
+
             NAMESPACE="{{ .Values.namespace }}"
             GREEN='\033[0;32m'
             NC='\033[0m'
             YELLOW='\033[0;33m'
 
-            # Function to safely create a secret and handle "already exists" errors
+            # Function to safely create a secret if it doesn't exist
+            # Usage: safe_create_secret <secret-name-for-checks> <kubectl create secret args...>
             safe_create_secret() {
-              local name="$1"
-              local args=("${@:2}")  # Get all arguments except the first one
-              
-              echo "Creating $name secret..."
-              if kubectl create secret "${args[@]}" 2>/dev/null; then
+              local name="$1" # Secret name for messages and 'get' check
+              shift          # Remove the name, $@ now holds args for 'create'
+
+              echo "Ensuring $name secret exists..."
+              # Try creating using the remaining arguments ($@)
+              # Suppress stdout/stderr on the create attempt
+              if kubectl create secret "$@" >/dev/null 2>&1; then
                 echo -e "${GREEN}✓ Created $name secret${NC}"
-                return 0
-              elif kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
-                echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
-                return 0
+                return 0 # Success
               else
-                echo "Failed to create $name secret for unknown reason"
-                return 1
+                # Creation failed, check if it's because it already exists
+                if kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
+                  echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
+                  return 0 # Success (already exists)
+                else
+                  # It failed AND it doesn't exist -> indicates a real error
+                  echo "Error: Failed to create $name secret and it does not exist. Check permissions or kubectl logs." >&2
+                  return 1 # Indicate failure
+                fi
               fi
             }
 
             # === Part 1: Auth.js Secret ===
-            echo "Checking for unbind-authjs-secrets secret in namespace '$NAMESPACE'..."
-            if ! kubectl get secret unbind-authjs-secrets -n "$NAMESPACE" &> /dev/null; then
-              echo "Creating unbind-authjs-secrets secret..."
-              # Generate random secrets
-              AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-              
-              # Create the secret with error handling
-              if ! safe_create_secret "unbind-authjs-secrets" generic unbind-authjs-secrets \
-                --namespace="$NAMESPACE" \
-                --from-literal=auth-secret="${AUTH_SECRET}"; then
-                echo "Warning: Failed to create auth secret, but continuing with deployment"
-              fi
-            else
-              echo "Auth secret unbind-authjs-secrets already exists."
+            echo "Processing unbind-authjs-secrets..."
+            # Generate potential secret value (only used if creation happens)
+            AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+
+            # Call the function to handle creation/checking idempotently
+            if ! safe_create_secret "unbind-authjs-secrets" generic unbind-authjs-secrets \
+              --namespace="$NAMESPACE" \
+              --from-literal=auth-secret="${AUTH_SECRET}"; then
+              # Function returned failure (a real error occurred, not just AlreadyExists)
+              echo "Error: Failed to ensure unbind-authjs-secrets exists. Halting hook." >&2
+              # set -eu will cause script to exit non-zero here anyway
+              exit 1
             fi
 
             # === Part 2: Dex Client Secrets ===
-            echo "Checking for dex-client-secrets secret in namespace '$NAMESPACE'..."
-            if ! kubectl get secret dex-client-secrets -n "$NAMESPACE" &> /dev/null; then
-              echo "Creating dex-client-secrets secret..."
-              # Generate random secrets
-              CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-              CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-              
-              # Create the secret with error handling
-              if ! safe_create_secret "dex-client-secrets" generic dex-client-secrets \
-                --namespace="$NAMESPACE" \
-                --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
-                --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"; then
-                echo "Warning: Failed to create dex client secrets, but continuing with deployment"
-              fi
-            else
-              echo "Dex client secrets dex-client-secrets already exist."
+            echo "Processing dex-client-secrets..."
+            # Generate potential secret values
+            CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+            CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
+
+            # Call the function to handle creation/checking idempotently
+            if ! safe_create_secret "dex-client-secrets" generic dex-client-secrets \
+              --namespace="$NAMESPACE" \
+              --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
+              --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"; then
+              echo "Error: Failed to ensure dex-client-secrets exists. Halting hook." >&2
+              exit 1
             fi
 
-            # Always exit with success to ensure helmfile continues
-            exit 0
+            echo "Secret checks/creation complete."
     values:
       # Global values
       - global:
