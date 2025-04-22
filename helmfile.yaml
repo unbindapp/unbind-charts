@@ -408,21 +408,6 @@ releases:
             GREEN='\033[0;32m'
             NC='\033[0m'
 
-            # --- BEGIN Ensure Namespace Exists ---
-            echo "Checking if namespace '$NAMESPACE' exists..."
-            # Attempt to get the namespace, suppress output. If it fails (doesn't exist), proceed to create.
-            if ! kubectl get namespace "$NAMESPACE" -o name > /dev/null 2>&1; then
-              echo "Namespace '$NAMESPACE' not found. Attempting to create..."
-              # Try to create the namespace. If this fails for reasons other than
-              # "AlreadyExists" (like permissions), 'set -e' will stop the script.
-              kubectl create namespace "$NAMESPACE"
-              echo -e "${GREEN}✓ Namespace '$NAMESPACE' created.${NC}"
-            else
-              echo "Namespace '$NAMESPACE' already exists."
-            fi
-            # --- END Ensure Namespace Exists ---
-
-            # Now proceed with the original secret logic, knowing the namespace should exist
             echo "Checking for existing secret 'registry-basic-auth' in namespace '$NAMESPACE'..."
             if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
