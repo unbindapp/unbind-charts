@@ -402,16 +402,53 @@ releases:
           - "-c"
           - |
             # Exit on error, treat unset variables as errors, propagate pipeline errors
-            set -eu 
-
+            set -eu
             NAMESPACE="{{ .Values.namespace }}" # Namespace needed by the script
             GREEN='\033[0;32m'
             NC='\033[0m'
+            YELLOW='\033[0;33m'
+            RED='\033[0;31m'
+
+            # Function to retry a command with exponential backoff
+            retry_command() {
+              local max_attempts=30  # About 5 minutes with our sleep pattern
+              local attempt=1
+              local timeout=3
+              local command="$@"
+              
+              while true; do
+                echo -e "${YELLOW}Attempt $attempt/$max_attempts: Running command...${NC}"
+                if eval "$command"; then
+                  return 0
+                fi
+                
+                attempt=$((attempt + 1))
+                if [ $attempt -gt $max_attempts ]; then
+                  echo -e "${RED}Command failed after $max_attempts attempts${NC}"
+                  return 1
+                fi
+                
+                echo -e "${YELLOW}Command failed. Retrying in $timeout seconds...${NC}"
+                sleep $timeout
+                
+                # Increase timeout slightly for exponential backoff
+                timeout=$((timeout + 2))
+              done
+            }
+
+            echo "Checking for namespace '$NAMESPACE'..."
+            if ! kubectl get namespace "$NAMESPACE" &>/dev/null; then
+              echo -e "${YELLOW}Namespace '$NAMESPACE' not found. Waiting for it to be created (up to 5 minutes)...${NC}"
+              if ! retry_command "kubectl get namespace \"$NAMESPACE\" &>/dev/null"; then
+                echo -e "${RED}Namespace '$NAMESPACE' was never created. Exiting.${NC}"
+                exit 1
+              fi
+            fi
+            echo -e "${GREEN}✓ Namespace '$NAMESPACE' exists${NC}"
 
             echo "Checking for existing secret 'registry-basic-auth' in namespace '$NAMESPACE'..."
             if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
-              
               TMPFILE=$(mktemp)
               # Ensure TMPFILE is removed on script exit
               trap 'rm -f -- "$TMPFILE"' EXIT
@@ -419,23 +456,25 @@ releases:
               USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
               PASSWORD=$(openssl rand -base64 48 | tr -d '\n')
               
-              htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE" 
+              htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE"
               
-              # Create the secrets (kubectl commands will now use the ensured namespace)
-              kubectl create secret generic registry-basic-auth \
-                --namespace="$NAMESPACE" \
-                --from-file=auth="$TMPFILE"
+              # Create the secrets with retry
+              echo "Creating registry-basic-auth secret..."
+              if ! retry_command "kubectl create secret generic registry-basic-auth --namespace=\"$NAMESPACE\" --from-file=auth=\"$TMPFILE\""; then
+                echo -e "${RED}Failed to create registry-basic-auth secret after multiple attempts${NC}"
+                exit 1
+              fi
               
-              kubectl create secret generic registry-credentials \
-                --namespace="$NAMESPACE" \
-                --from-literal=username="${USERNAME}" \
-                --from-literal=password="${PASSWORD}"
+              echo "Creating registry-credentials secret..."
+              if ! retry_command "kubectl create secret generic registry-credentials --namespace=\"$NAMESPACE\" --from-literal=username=\"${USERNAME}\" --from-literal=password=\"${PASSWORD}\""; then
+                echo -e "${RED}Failed to create registry-credentials secret after multiple attempts${NC}"
+                exit 1
+              fi
               
               echo -e "${GREEN}✓ Registry secrets created.${NC}"
             else
               echo "Secret registry-basic-auth already exists in namespace $NAMESPACE."
             fi
-
     values:
       - 
         ingress:
