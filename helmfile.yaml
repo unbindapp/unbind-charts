@@ -404,8 +404,10 @@ releases:
             # Exit immediately if a command exits with a non-zero status.
             set -e 
 
+            NAMESPACE="{{ .Values.namespace }}"
+
             # Check if secret already exists
-            if ! kubectl get secret registry-basic-auth -n {{ .Values.namespace }} &> /dev/null; then
+            if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
               
               # Create a temporary file for htpasswd
@@ -423,18 +425,18 @@ releases:
               
               # Create the basic auth secret
               kubectl create secret generic registry-basic-auth \
-                -n {{ .Values.namespace }} \
+                -n "$NAMESPACE" \
                 --from-file=auth="$TMPFILE"
               
               # Create the Docker Registry secret
               kubectl create secret generic registry-credentials \
-                --namespace={{ .Values.namespace }} \
+                --namespace="$NAMESPACE" \
                 --from-literal=username="${USERNAME}" \
                 --from-literal=password="${PASSWORD}"
 
               # No need to explicitly rm $TMPFILE anymore due to the trap
             else
-              echo "Secret registry-basic-auth already exists in namespace {{ .Values.namespace }}"
+              echo "Secret registry-basic-auth already exists in namespace $NAMESPACE"
             fi
 
     values:
