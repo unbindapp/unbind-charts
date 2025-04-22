@@ -401,42 +401,59 @@ releases:
         args:
           - "-c"
           - |
-            # Exit immediately if a command exits with a non-zero status.
-            set -e 
+            # Exit on error, treat unset variables as errors, propagate pipeline errors
+            set -euo pipefail 
 
-            NAMESPACE="{{ .Values.namespace }}"
+            NAMESPACE="{{ .Values.namespace }}" # Namespace needed by the script
+            GREEN='\033[0;32m'
+            NC='\033[0m'
 
-            # Check if secret already exists
+            # --- BEGIN Ensure Namespace Exists ---
+            echo "Checking if namespace '$NAMESPACE' exists..."
+            # Attempt to get the namespace, suppress output. If it fails (doesn't exist), proceed to create.
+            if ! kubectl get namespace "$NAMESPACE" -o name > /dev/null 2>&1; then
+              echo "Namespace '$NAMESPACE' not found. Attempting to create..."
+              # Try to create the namespace. If this fails for reasons other than
+              # "AlreadyExists" (like permissions), 'set -e' will stop the script.
+              kubectl create namespace "$NAMESPACE"
+              echo -e "${GREEN}✓ Namespace '$NAMESPACE' created.${NC}"
+            else
+              echo "Namespace '$NAMESPACE' already exists."
+            fi
+            # --- END Ensure Namespace Exists ---
+
+            # Now proceed with the original secret logic, knowing the namespace should exist
+            echo "Checking for existing secret 'registry-basic-auth' in namespace '$NAMESPACE'..."
             if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
               
-              # Create a temporary file for htpasswd
               TMPFILE=$(mktemp)
-              # Ensure TMPFILE is removed on script exit, regardless of success or failure
+              # Ensure TMPFILE is removed on script exit
               trap 'rm -f -- "$TMPFILE"' EXIT
               
-              # Generate htpasswd file with username and password
-              # Default username: admin, password will be randomly generated
               USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
               PASSWORD=$(openssl rand -base64 48 | tr -d '\n')
               
-              # Create htpasswd file - If htpasswd fails here, 'set -e' will cause script to exit non-zero
+              # Ensure htpasswd command exists (optional but recommended)
+              if ! command -v htpasswd &> /dev/null; then
+                echo "Error: 'htpasswd' command not found. Please install apache2-utils or httpd-tools." >&2
+                exit 1
+              fi
               htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE" 
               
-              # Create the basic auth secret
+              # Create the secrets (kubectl commands will now use the ensured namespace)
               kubectl create secret generic registry-basic-auth \
                 -n "$NAMESPACE" \
                 --from-file=auth="$TMPFILE"
               
-              # Create the Docker Registry secret
               kubectl create secret generic registry-credentials \
                 --namespace="$NAMESPACE" \
                 --from-literal=username="${USERNAME}" \
                 --from-literal=password="${PASSWORD}"
-
-              # No need to explicitly rm $TMPFILE anymore due to the trap
+              
+              echo -e "${GREEN}✓ Registry secrets created.${NC}"
             else
-              echo "Secret registry-basic-auth already exists in namespace $NAMESPACE"
+              echo "Secret registry-basic-auth already exists in namespace $NAMESPACE."
             fi
 
     values:
