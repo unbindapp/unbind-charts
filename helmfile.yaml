@@ -267,6 +267,10 @@ releases:
           persistence:
             enabled: true
             size: {{ .Values | get "overrides.loki.minioStorageSize" }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
 
         deploymentMode: SingleBinary
         singleBinary:
@@ -556,6 +560,10 @@ releases:
             compute-full-forwarded-for: "true"
             use-proxy-protocol: "false"
             allow-snippet-annotations: "true"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
         rbac:
           create: true
           scope: false
