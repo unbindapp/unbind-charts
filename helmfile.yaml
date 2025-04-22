@@ -423,7 +423,7 @@ releases:
               
               # Create the secrets (kubectl commands will now use the ensured namespace)
               kubectl create secret generic registry-basic-auth \
-                -n "$NAMESPACE" \
+                --namespace="$NAMESPACE" \
                 --from-file=auth="$TMPFILE"
               
               kubectl create secret generic registry-credentials \
