@@ -80,8 +80,16 @@ releases:
         # Enable only the components we need
         helmController:
           create: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
         sourceController:
           create: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
         # Disable other controllers we don't need
         kustomizeController:
           create: false
