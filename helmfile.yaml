@@ -394,8 +394,51 @@ releases:
   - name: registry
     namespace: {{ .Values.namespace }}
     chart: ./charts/registry
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            # Check if secret already exists
+            if ! kubectl get secret registry-basic-auth -n {{ .Values.namespace }} &> /dev/null; then
+              echo "Creating basic auth secret for Docker Registry..."
+              
+              # Create a temporary file for htpasswd
+              TMPFILE=$(mktemp)
+              
+              # Generate htpasswd file with username and password
+              # Default username: admin, password will be randomly generated
+              USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
+              PASSWORD=$(openssl rand -base64 48 | tr -d '\n')
+              
+              # Create htpasswd file
+              htpasswd -Bbn $USERNAME $PASSWORD > $TMPFILE
+              
+              # Create the basic auth secret
+              kubectl create secret generic registry-basic-auth \
+                -n {{ .Values.namespace }} \
+                --from-file=auth=$TMPFILE
+              
+              # Create the Docker Registry secret
+              kubectl create secret generic registry-credentials \
+                --namespace={{ .Values.namespace }} \
+                --from-literal=username="${USERNAME}" \
+                --from-literal=password="${PASSWORD}"
+
+              # Remove temp file
+              rm $TMPFILE
+            else
+              echo "Secret registry-basic-auth already exists in namespace {{ .Values.namespace }}"
+            fi
+
     values:
       - 
+        ingress:
+          enabled: true
+          host: {{ .Values | get "overrides.registry.ingress.host" (printf "docker-registry.%s" .Values.baseDomain) }}
+          authSecret: registry-basic-auth
         replicaCount: {{ .Values | get "overrides.registry.replicaCount" }}
         persistence:
           size: {{ .Values | get "overrides.registry.persistence.size" }}
@@ -906,6 +949,8 @@ releases:
             enabled: true
           command: ["/app/api"]
           env:
+            - name: SYSTEM_NAMESPACE
+              value: {{ .Values.namespace }}
             - name: EXTERNAL_UI_URL
               value: {{ printf "https://unbind.%s" .Values.baseDomain }}
             - name: EXTERNAL_API_URL
@@ -947,10 +992,18 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.buildImager" "unbindapp/unbind-builder:latest" }}
             - name: BUILDER_NAMESPACE
               value: {{ .Values.namespace }}
-            - name: CONTAINER_REGISTRY_HOST
-              value: {{ .Values | get "overrides.unbind.api.registry.host" (printf "docker-registry.%s:5000" .Values.namespace) }}
-            - name: CONTAINER_REGISTRY_PASSWORD
-              value: {{ .Values | get "overrides.unbind.api.registry.password" "TODO" }}
+            - name: BOOTSTRAP_CONTAINER_REGISTRY_HOST
+              value: {{ .Values | get "overrides.registry.ingress.host" (printf "docker-registry.%s" .Values.baseDomain) }}
+            - name: BOOTSTRAP_CONTAINER_REGISTRY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: registry-credentials
+                  key: username
+            - name: BOOTSTRAP_CONTAINER_REGISTRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: registry-credentials
+                  key: password
             - name: BUILDKIT_HOST
               value: {{ $hostValue := .Values | get "overrides.unbind.api.buildkit.host" "" }}
                     {{- if $hostValue }}
@@ -987,6 +1040,8 @@ releases:
             enabled: true
           command: ["/app/oauth2server"]
           env:
+            - name: SYSTEM_NAMESPACE
+              value: {{ .Values.namespace }}
             - name: EXTERNAL_OAUTH2_URL
               value: {{ printf "https://unbind.%s/api/oauth2" .Values.baseDomain }}
             - name: POSTGRES_HOST
