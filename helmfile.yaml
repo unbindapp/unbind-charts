@@ -736,13 +736,6 @@ releases:
         configSecret:
           create: true
 
-        service:
-          ports:
-            http:
-              port: 5554
-            https:
-              port: 5556
-
         config:
           issuer: {{ .Values | get "overrides.dex.issuer" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
           storage:
@@ -756,10 +749,10 @@ releases:
               ssl:
                 mode: {{ .Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
           web:
-            https: 0.0.0.0:5556
+            https: 0.0.0.0:5554
             tlsCert: /etc/dex/tls/tls.crt
             tlsKey: /etc/dex/tls/tls.key
-          issuers: {{ .Values | get "overrides.dex.issuers" (list (printf "https://unbind.%s/api/dex" .Values.baseDomain) (printf "https://dex.%s.svc.cluster.local:5556" .Values.namespace)) | toYaml | nindent 12 }}
+          issuers: {{ .Values | get "overrides.dex.issuers" (list (printf "https://unbind.%s/api/dex" .Values.baseDomain) (printf "https://dex.%s.svc.cluster.local:5554" .Values.namespace)) | toYaml | nindent 12 }}
           oauth2:
             skipApprovalScreen: {{ .Values | get "overrides.dex.oauth2.skipApprovalScreen" true }}
             responseTypes: {{ .Values | get "overrides.dex.oauth2.responseTypes" (list "code") | toYaml | nindent 14 }}
@@ -844,6 +837,12 @@ releases:
             {{- end }}
           hosts:
             - host: {{ .Values | get "overrides.dex.host" (printf "unbind.%s" .Values.baseDomain) }}
+              backend:
+                service:
+                  name: dex
+                  port:
+                    # Target the Service's HTTPS port (default 5554)
+                    number: 5554
               paths:
                 - path: /api/dex(/|$)(.*)
                   pathType: ImplementationSpecific
