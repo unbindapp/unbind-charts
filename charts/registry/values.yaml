@@ -9,4 +9,6 @@ ingress:
   enabled: true
   host: registry.unbind.cloud
   authSecret: registry-basic-auth
+  tls:
+    secretName: registry-tls
   annotations: {}
