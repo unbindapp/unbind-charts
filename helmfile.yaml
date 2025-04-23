@@ -580,6 +580,16 @@ releases:
     namespace: {{ .Values.namespace }}
     chart: jetstack/cert-manager
     version: 1.17.1
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            echo "Installing cert-manager CRDs..."
+            kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.crds.yaml
+            echo "Cert-manager CRDs installed"
     values:
       - 
         crds:
