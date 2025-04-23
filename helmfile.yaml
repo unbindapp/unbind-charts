@@ -77,6 +77,8 @@ releases:
     version: 2.15.0  # Latest version as of April 2025
     values:
       - 
+        policies:
+          create: false
         # Enable only the components we need
         helmController:
           create: true
