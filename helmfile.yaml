@@ -622,27 +622,40 @@ releases:
             NC='\033[0m'
             YELLOW='\033[0;33m'
 
+            # Helper function to safely create secrets without failing when they exist
+            safe_create_secret() {
+              local name="$1" # Secret name for messages and 'get' check
+              shift # Remove the name, $@ now holds args for 'create'
+              echo "Ensuring $name secret exists..."
+              # Try creating using the remaining arguments ($@)
+              # Suppress stdout/stderr on the create attempt
+              if kubectl create "$@" >/dev/null 2>&1; then
+                echo -e "${GREEN}✓ Created $name secret${NC}"
+                return 0 # Success
+              else
+                # Creation failed, check if it's because it already exists
+                if kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
+                  echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
+                  return 0 # Success (already exists)
+                else
+                  # It failed AND it doesn't exist -> indicates a real error
+                  echo "Error: Failed to create $name secret and it does not exist. Check permissions or kubectl logs." >&2
+                  return 1 # Indicate failure
+                fi
+              fi
+            }
+
             # === Part 1: Client Secrets ===
             echo "Processing dex-client-secrets..."
             CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
             CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 
-            # Attempt to create the secret, handle if it already exists
-            if kubectl create secret generic dex-client-secrets \
+            # Use the safe_create_secret function
+            safe_create_secret "dex-client-secrets" \
+              secret generic dex-client-secrets \
               --namespace="$NAMESPACE" \
               --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
-              --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}" >/dev/null 2>&1; then
-              echo -e "${GREEN}✓ Created dex-client-secrets secret${NC}"
-            else
-              # If create failed, check if it already exists
-              if kubectl get secret dex-client-secrets -n "$NAMESPACE" &>/dev/null; then
-                echo -e "${YELLOW}dex-client-secrets secret already exists. Skipping creation.${NC}"
-              else
-                # If it failed and doesn't exist, it's a real error
-                echo "Error: Failed to create dex-client-secrets and it does not exist. Check permissions or logs." >&2
-                exit 1
-              fi
-            fi
+              --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
 
             # === Part 2: TLS Certificates (Internal mTLS) ===
             echo "Processing dex-tls secret..."
@@ -676,7 +689,7 @@ releases:
                 "DNS.1 = $DEX_SVC_NAME" \
                 "DNS.2 = $DEX_SVC_FQDN" \
                 "DNS.3 = $DEX_EXTERNAL_HOST" \
-                 > "$CERT_DIR/dex.ext"
+                > "$CERT_DIR/dex.ext"
 
               echo "Signing Dex certificate..."
               openssl x509 -req -in "$CERT_DIR/dex.csr" -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
@@ -684,19 +697,25 @@ releases:
                 -extfile "$CERT_DIR/dex.ext"
               echo -e "${GREEN}✓ Certificates generated${NC}"
 
-              echo "Creating Kubernetes TLS secret dex-tls..."
-              kubectl create secret tls dex-tls \
+              # Use the safe_create_secret function for the TLS secret
+              safe_create_secret "dex-tls" \
+                secret tls dex-tls \
                 --namespace="$NAMESPACE" \
                 --cert="$CERT_DIR/dex.crt" \
                 --key="$CERT_DIR/dex.key"
 
-              CA_CRT_BASE64=$(base64 -w 0 < "$CERT_DIR/ca.crt")
-
-              echo "Patching dex-tls secret to include ca.crt..."
-              kubectl patch secret dex-tls -n "$NAMESPACE" --type='json' \
-                -p="[{\"op\": \"add\", \"path\": \"/data/ca.crt\", \"value\": \"$CA_CRT_BASE64\"}]"
-
-              echo -e "${GREEN}✓ Created and patched TLS certificates for Dex (internal use)${NC}"
+              # Only patch if the secret exists (either we just created it or it existed already)
+              if kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
+                CA_CRT_BASE64=$(base64 -w 0 < "$CERT_DIR/ca.crt")
+                
+                echo "Patching dex-tls secret to include ca.crt..."
+                # Use || true to prevent failure even if patch fails
+                kubectl patch secret dex-tls -n "$NAMESPACE" --type='json' \
+                  -p="[{\"op\": \"add\", \"path\": \"/data/ca.crt\", \"value\": \"$CA_CRT_BASE64\"}]" || \
+                  echo -e "${YELLOW}Warning: Failed to patch dex-tls secret with CA certificate.${NC}"
+                
+                echo -e "${GREEN}✓ TLS certificates for Dex processed${NC}"
+              fi
             else
               echo -e "${YELLOW}Internal TLS secret dex-tls already exists.${NC}"
             fi
