@@ -615,7 +615,7 @@ releases:
     values:
       - 
         crds:
-          enabled: true
+          enabled: false
         replicaCount: {{ .Values | get "overrides.certManager.replicaCount" 1 }}
         ingressShim:
           defaultIssuerName: letsencrypt-prod
