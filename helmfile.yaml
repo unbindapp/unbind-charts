@@ -820,11 +820,6 @@ releases:
               paths:
                 - path: /api/dex(/|$)(.*)
                   pathType: ImplementationSpecific
-                  backend:
-                    service:
-                      name: dex
-                      port:
-                        number: 5556
           tls:
             - secretName: {{ .Values.tlsSecretName }}
               hosts:
