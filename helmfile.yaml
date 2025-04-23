@@ -336,6 +336,8 @@ releases:
     namespace: {{ .Values.namespace }}
     chart: postgres-operator/postgres-operator
     version: 1.14.0
+    needs:
+      - cert-manager
     hooks:
       - events: ["presync"]
         showlogs: true
