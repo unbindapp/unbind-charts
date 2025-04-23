@@ -590,21 +590,6 @@ releases:
             echo "Installing cert-manager CRDs..."
             kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.crds.yaml
             echo "Cert-manager CRDs installed"
-    values:
-      - 
-        crds:
-          enabled: true
-        replicaCount: {{ .Values | get "overrides.certManager.replicaCount" 1 }}
-        ingressShim:
-          defaultIssuerName: letsencrypt-prod
-          defaultIssuerKind: ClusterIssuer
-          defaultIssuerGroup: cert-manager.io
-    labels:
-      component: cert-manager
-      installed: {{ .Values | get "components.certManager.enabled" true }}
-    
-    # Hook to create ClusterIssuer after cert-manager installation
-    hooks:
       - events: ["postsync"]
         showlogs: true
         command: "/bin/sh"
@@ -627,6 +612,18 @@ releases:
                     ingress:
                       class: nginx
             EOF
+    values:
+      - 
+        crds:
+          enabled: true
+        replicaCount: {{ .Values | get "overrides.certManager.replicaCount" 1 }}
+        ingressShim:
+          defaultIssuerName: letsencrypt-prod
+          defaultIssuerKind: ClusterIssuer
+          defaultIssuerGroup: cert-manager.io
+    labels:
+      component: cert-manager
+      installed: {{ .Values | get "components.certManager.enabled" true }}
 
   - name: dex
     namespace: {{ .Values.namespace }}
