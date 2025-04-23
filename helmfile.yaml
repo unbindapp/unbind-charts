@@ -736,6 +736,13 @@ releases:
         configSecret:
           create: true
 
+        service:
+          ports:
+            http:
+              port: 5554
+            https:
+              port: 5556
+
         config:
           issuer: {{ .Values | get "overrides.dex.issuer" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
           storage:
