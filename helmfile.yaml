@@ -828,6 +828,7 @@ releases:
           className: {{ .Values | get "overrides.dex.ingress.className" "nginx" }}
           annotations:
             kubernetes.io/tls-acme: "true"
+            nginx.ingress.kubernetes.io/backend-protocol: HTTPS
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
             nginx.ingress.kubernetes.io/rewrite-target: /$2
             nginx.ingress.kubernetes.io/use-regex: "true"
