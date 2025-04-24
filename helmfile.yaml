@@ -829,14 +829,16 @@ releases:
           annotations:
             kubernetes.io/tls-acme: "true"
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/rewrite-target: /api/dex/$2
+            nginx.ingress.kubernetes.io/use-regex: "true"
             {{- with .Values | get "overrides.dex.ingress.annotations" dict }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           hosts:
             - host: {{ .Values | get "overrides.dex.host" (printf "unbind.%s" .Values.baseDomain) }}
               paths:
-                - path: /api/dex
-                  pathType: Prefix
+                - path: /api/dex(/|$)(.*)
+                  pathType: ImplementationSpecific
           tls:
             - secretName: {{ .Values.tlsSecretName }}
               hosts:
