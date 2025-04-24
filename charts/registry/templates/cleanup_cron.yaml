@@ -87,7 +87,14 @@ spec:
               }
               
               # Convert MAX_STORAGE to bytes
-              MAX_SIZE_BYTES=$(convert_to_bytes "$MAX_STORAGE")
+              # Convert MAX_STORAGE (e.g. "3Gi" or "500M") to a plain-integer byte count
+              MAX_SIZE_BYTES=$(numfmt --from=iec --to=none "$MAX_STORAGE")
+
+              # Fallback for very old coreutils that lack --from=iec
+              if ! [[ "$MAX_SIZE_BYTES" =~ ^[0-9]+$ ]]; then
+                MAX_SIZE_BYTES=$(convert_to_bytes "$MAX_STORAGE")
+                MAX_SIZE_BYTES=$(printf "%.0f" "$MAX_SIZE_BYTES")   # strip any sci-notation
+              fi
               echo "Threshold value $MAX_STORAGE converted to $MAX_SIZE_BYTES bytes"
               
               # Get catalog of repositories
