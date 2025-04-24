@@ -1,6 +1,3 @@
-# helmfile.yaml
-# Main Helmfile configuration
-# Repositories
 repositories:
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
@@ -20,25 +17,25 @@ repositories:
     url: https://fluxcd-community.github.io/helm-charts
 
 values:
- - baseDomain: example.com
+ - unbindDomain: unbind.example.com
+ - unbindRegistryDomain: unbind-registry.example.com
+ - wildcardBaseDomain: ""
  - namespace: unbind-system
- - tlsSecretName: unbind-domain-tls 
+ - tlsSecretName: unbind-domain-tls
+ - registryTlsSecretName: unbind-registry-domain-tls
 
-# Environment values are loaded from environment-specific files
 environments:
   default:
     values:
       - environments/default.yaml
-# Configure "requires" for dependencies between releases
+
 helmDefaults:
   wait: true
   timeout: 600
   atomic: true
   createNamespace: true
 ---
-# Releases
 releases:
-  # Add Flux CD controllers
   - name: flux
     namespace: {{ .Values.namespace }}
     chart: fluxcd-community/flux2
@@ -47,7 +44,6 @@ releases:
       -
         policies:
           create: false
-        # Enable only the components we need
         helmController:
           create: true
           resources:
@@ -60,7 +56,6 @@ releases:
             requests:
               cpu: 10m
               memory: 10Mi
-        # Disable other controllers we don't need
         kustomizeController:
           create: false
         notificationController:
@@ -254,7 +249,6 @@ releases:
             - name: loki-data
               mountPath: /var/loki
 
-        # Zero out replica counts of other deployment modes
         backend:
           replicas: 0
         read:
@@ -333,13 +327,11 @@ releases:
             - unbind-service
             - unbind-deployment
             - unbind-is-system-db
-            # Helm labels
             - app.kubernetes.io/managed-by
             - app.kubernetes.io/name
             - app.kubernetes.io/instance
             - app.kubernetes.io/version
             - helm.sh/chart
-            # Unbind custom definition labels
             - unbind/usd-name
             - unbind/usd-version
             - unbind/usd-category
@@ -401,24 +393,21 @@ releases:
     namespace: {{ .Values.namespace }}
     chart: ./charts/registry
     hooks:
-      # ... (presync hook for secret creation remains the same) ...
       - events: ["presync"]
         showlogs: true
         command: "/bin/sh"
         args:
           - "-c"
           - |
-            # Exit on error, treat unset variables as errors, propagate pipeline errors
             set -eu
-            NAMESPACE="{{ .Values.namespace }}" # Namespace needed by the script
+            NAMESPACE="{{ .Values.namespace }}"
             GREEN='\033[0;32m'
             NC='\033[0m'
             YELLOW='\033[0;33m'
             RED='\033[0;31m'
 
-            # Function to retry a command with exponential backoff
             retry_command() {
-              local max_attempts=30  # About 5 minutes with our sleep pattern
+              local max_attempts=30
               local attempt=1
               local timeout=3
               local command="$@"
@@ -437,8 +426,6 @@ releases:
 
                 echo -e "${YELLOW}Command failed. Retrying in $timeout seconds...${NC}"
                 sleep $timeout
-
-                # Increase timeout slightly for exponential backoff
                 timeout=$((timeout + 2))
               done
             }
@@ -457,7 +444,6 @@ releases:
             if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
               echo "Creating basic auth secret for Docker Registry..."
               TMPFILE=$(mktemp)
-              # Ensure TMPFILE is removed on script exit
               trap 'rm -f -- "$TMPFILE"' EXIT
 
               USERNAME={{ .Values | get "overrides.registry.auth.username" "admin" }}
@@ -465,7 +451,6 @@ releases:
 
               htpasswd -Bbn "$USERNAME" "$PASSWORD" > "$TMPFILE"
 
-              # Create the secrets with retry
               echo "Creating registry-basic-auth secret..."
               if ! retry_command "kubectl create secret generic registry-basic-auth --namespace=\"$NAMESPACE\" --from-file=auth=\"$TMPFILE\""; then
                 echo -e "${RED}Failed to create registry-basic-auth secret after multiple attempts${NC}"
@@ -486,10 +471,10 @@ releases:
       -
         ingress:
           enabled: true
-          host: {{ .Values | get "overrides.registry.ingress.host" (printf "unbind-registry.%s" .Values.baseDomain) }}
+          host: {{ .Values.unbindRegistryDomain }}
           authSecret: registry-basic-auth
           tls:
-            secretName: {{ .Values.tlsSecretName }}
+            secretName: {{ .Values.registryTlsSecretName }}
         replicaCount: {{ .Values | get "overrides.registry.replicaCount" }}
         persistence:
           size: {{ .Values | get "overrides.registry.persistence.size" }}
@@ -500,7 +485,6 @@ releases:
       component: registry
       installed: {{ .Values | get "components.registry.enabled" true }}
 
-  # Added ingress-nginx as a daemonset
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
     chart: ingress-nginx/ingress-nginx
@@ -541,7 +525,6 @@ releases:
       component: ingress
       installed: {{ .Values | get "components.ingressNginx.enabled" true }}
 
-  # Added cert-manager for SSL certificates
   - name: cert-manager
     namespace: {{ .Values.namespace }}
     chart: jetstack/cert-manager
@@ -570,13 +553,13 @@ releases:
             spec:
               acme:
                 server: https://acme-v02.api.letsencrypt.org/directory
-                email: "admin@{{ .Values.baseDomain }}"
+                email: "admin@{{ .Values.unbindDomain }}"
                 privateKeySecretRef:
                   name: letsencrypt-prod
                 solvers:
                 - http01:
                     ingress:
-                      class: nginx # Ensure this matches your Ingress controller class
+                      class: nginx
             EOF
     values:
       -
@@ -606,55 +589,43 @@ releases:
         args:
           - "-c"
           - |
-            # Exit on error, treat unset variables as errors
             set -eu
 
             NAMESPACE="{{ .Values.namespace }}"
-            # NOTE: This hook generates INTERNAL certs (dex-tls), not the ingress cert.
-            #       The ingress cert (unbind-domain-tls) should be handled by cert-manager.
-            BASE_DOMAIN="{{ .Values.baseDomain }}"
+            UNBIND_DOMAIN="{{ .Values.unbindDomain }}"
             GREEN='\033[0;32m'
             NC='\033[0m'
             YELLOW='\033[0;33m'
 
-            # Helper function to safely create secrets without failing when they exist
             safe_create_secret() {
-              local name="$1" # Secret name for messages and 'get' check
-              shift # Remove the name, $@ now holds args for 'create'
+              local name="$1"
+              shift
               echo "Ensuring $name secret exists..."
-              # Try creating using the remaining arguments ($@)
-              # Suppress stdout/stderr on the create attempt
               if kubectl create "$@" >/dev/null 2>&1; then
                 echo -e "${GREEN}✓ Created $name secret${NC}"
-                return 0 # Success
+                return 0
               else
-                # Creation failed, check if it's because it already exists
                 if kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
                   echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
-                  return 0 # Success (already exists)
+                  return 0
                 else
-                  # It failed AND it doesn't exist -> indicates a real error
                   echo "Error: Failed to create $name secret and it does not exist. Check permissions or kubectl logs." >&2
-                  return 1 # Indicate failure
+                  return 1
                 fi
               fi
             }
 
-            # === Part 1: Client Secrets ===
             echo "Processing dex-client-secrets..."
             CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
             CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 
-            # Use the safe_create_secret function
             safe_create_secret "dex-client-secrets" \
               secret generic dex-client-secrets \
               --namespace="$NAMESPACE" \
               --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
               --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
 
-            # === Part 2: TLS Certificates (Internal mTLS) ===
             echo "Processing dex-tls secret..."
-            # Check if TLS secret exists before attempting complex generation
             if ! kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
               echo "Generating TLS certificates for Dex (internal use)..."
 
@@ -663,7 +634,7 @@ releases:
 
               DEX_SVC_NAME="dex"
               DEX_SVC_FQDN="${DEX_SVC_NAME}.${NAMESPACE}.svc.cluster.local"
-              DEX_EXTERNAL_HOST="{{ printf "unbind.%s" .Values.baseDomain }}"
+              DEX_EXTERNAL_HOST="{{ .Values.unbindDomain }}"
 
               echo "Generating Root CA..."
               openssl genrsa -out "$CERT_DIR/ca.key" 4096
@@ -692,23 +663,20 @@ releases:
                 -extfile "$CERT_DIR/dex.ext"
               echo -e "${GREEN}✓ Certificates generated${NC}"
 
-              # Use the safe_create_secret function for the TLS secret
               safe_create_secret "dex-tls" \
                 secret tls dex-tls \
                 --namespace="$NAMESPACE" \
                 --cert="$CERT_DIR/dex.crt" \
                 --key="$CERT_DIR/dex.key"
 
-              # Only patch if the secret exists (either we just created it or it existed already)
               if kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
                 CA_CRT_BASE64=$(base64 -w 0 < "$CERT_DIR/ca.crt")
-                
+
                 echo "Patching dex-tls secret to include ca.crt..."
-                # Use || true to prevent failure even if patch fails
                 kubectl patch secret dex-tls -n "$NAMESPACE" --type='json' \
                   -p="[{\"op\": \"add\", \"path\": \"/data/ca.crt\", \"value\": \"$CA_CRT_BASE64\"}]" || \
                   echo -e "${YELLOW}Warning: Failed to patch dex-tls secret with CA certificate.${NC}"
-                
+
                 echo -e "${GREEN}✓ TLS certificates for Dex processed${NC}"
               fi
             else
@@ -732,7 +700,7 @@ releases:
           create: true
 
         config:
-          issuer: {{ .Values | get "overrides.dex.issuer" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
+          issuer: {{ .Values | get "overrides.dex.issuer" (printf "https://%s/api/dex" .Values.unbindDomain) }}
           storage:
             type: postgres
             config:
@@ -747,7 +715,7 @@ releases:
             https: 0.0.0.0:5556
             tlsCert: /etc/dex/tls/tls.crt
             tlsKey: /etc/dex/tls/tls.key
-          issuers: {{ .Values | get "overrides.dex.issuers" (list (printf "https://unbind.%s/api/dex" .Values.baseDomain) (printf "https://dex.%s.svc.cluster.local:5556" .Values.namespace)) | toYaml | nindent 12 }}
+          issuers: {{ .Values | get "overrides.dex.issuers" (list (printf "https://%s/api/dex" .Values.unbindDomain) (printf "https://dex.%s.svc.cluster.local:5556" .Values.namespace)) | toYaml | nindent 12 }}
           oauth2:
             skipApprovalScreen: {{ .Values | get "overrides.dex.oauth2.skipApprovalScreen" true }}
             responseTypes: {{ .Values | get "overrides.dex.oauth2.responseTypes" (list "code") | toYaml | nindent 14 }}
@@ -764,13 +732,13 @@ releases:
               "id" "unbind-oidc"
               "name" "Unbind Built-in OIDC Provider"
               "config" (dict
-                "issuer" (printf "https://unbind.%s/api/oauth2" .Values.baseDomain)
+                "issuer" (printf "https://%s/api/oauth2" .Values.unbindDomain)
                 "clientID" "dex-client"
                 "clientSecret" (printf "$%s" "CONNECTOR_SECRET")
-                "redirectURI" (printf "https://unbind.%s/api/dex/callback" .Values.baseDomain)
+                "redirectURI" (printf "https://%s/api/dex/callback" .Values.unbindDomain)
                 "scopes" (list "openid" "profile" "email" "offline_access" "groups")
                 "insecureEnableGroups" true
-                "discoveryURL" (printf "https://unbind.%s/api/oauth2/.well-known/openid-configuration" .Values.baseDomain)
+                "discoveryURL" (printf "https://%s/api/oauth2/.well-known/openid-configuration" .Values.unbindDomain)
                 "userIDKey" "jti"
                 "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")
               )
@@ -780,8 +748,8 @@ releases:
               secretEnv: CLIENT_SECRET
               name: Unbind API
               redirectURIs:
-                - {{ printf "https://unbind.%s/api-internal/auth/callback/dex" .Values.baseDomain }}
-                - {{ printf "https://unbind.%s/api/auth/callback" .Values.baseDomain }}
+                - {{ printf "https://%s/api-internal/auth/callback/dex" .Values.unbindDomain }}
+                - {{ printf "https://%s/api/auth/callback" .Values.unbindDomain }}
               responseTypes: {{ .Values | get "overrides.dex.staticClients.unbindApi.responseTypes" (list "code") | toYaml | nindent 16 }}
 
         envVars:
@@ -828,14 +796,14 @@ releases:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           hosts:
-            - host: {{ .Values | get "overrides.dex.host" (printf "unbind.%s" .Values.baseDomain) }}
+            - host: {{ .Values.unbindDomain }}
               paths:
                 - path: /api/dex
                   pathType: Prefix
           tls:
             - secretName: {{ .Values.tlsSecretName }}
               hosts:
-                - {{ .Values | get "overrides.dex.host" (printf "unbind.%s" .Values.baseDomain) }}
+                - {{ .Values.unbindDomain }}
 
         volumes:
           - name: tls-certs
@@ -865,18 +833,10 @@ releases:
           pullPolicy: {{ .Values | get "overrides.kubeOidcProxy.image.pullPolicy" "IfNotPresent" }}
 
         oidc:
-          # Point to the new external Dex issuer URL path
-          issuerUrl: {{ .Values | get "overrides.kubeOidcProxy.oidc.issuerUrl" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
-          # Use the CA from the internal dex-tls secret if connecting directly to service, or system CA if via ingress
-          # Assuming connection via ingress - needs CA cert if ingress TLS is not publicly trusted (e.g. self-signed)
-          # For Let's Encrypt, caFile shouldn't be needed.
-          # caFile: /etc/oidc/ca.crt # Mount this if needed
-          clientId: {{ .Values | get "overrides.kubeOidcProxy.oidc.clientId" "unbind-api" }} # Client ID registered in Dex
+          issuerUrl: {{ .Values | get "overrides.kubeOidcProxy.oidc.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+          clientId: {{ .Values | get "overrides.kubeOidcProxy.oidc.clientId" "unbind-api" }}
           usernameClaim: {{ .Values | get "overrides.kubeOidcProxy.oidc.usernameClaim" "email" }}
           groupsClaim: {{ .Values | get "overrides.kubeOidcProxy.oidc.groupsClaim" "groups" }}
-          # tlsSecretName points to the internal secret used by Dex for mTLS, kube-oidc-proxy might need the CA part
-          # Let's mount the CA part of dex-tls if needed for validation
-          # tlsSecretName: {{ .Values | get "overrides.kubeOidcProxy.oidc.tlsSecretName" "dex-tls" }}
 
         service:
           type: {{ .Values | get "overrides.kubeOidcProxy.service.type" "ClusterIP" }}
@@ -896,24 +856,10 @@ releases:
           viewerCreate: {{ .Values | get "overrides.kubeOidcProxy.rbac.viewerCreate" true }}
           viewerGroupName: {{ .Values | get "overrides.kubeOidcProxy.rbac.viewerGroupName" "oidc:users" }}
 
-        # Example volume mount if CA cert is needed for issuer URL validation
-        # volumes:
-        #   - name: oidc-ca
-        #     secret:
-        #       secretName: dex-tls # Or the appropriate CA secret
-        #       items:
-        #         - key: ca.crt
-        #           path: ca.crt
-        # volumeMounts:
-        #   - name: oidc-ca
-        #     mountPath: /etc/oidc
-        #     readOnly: true
-
     labels:
       component: auth
       installed: {{ .Values | get "components.kubeOidcProxy.enabled" true }}
 
-    # * Unbind operator
   - name: unbind-operator
     namespace: {{ .Values.namespace }}
     chart: ./charts/unbind-operator
@@ -928,25 +874,22 @@ releases:
       component: unbind-operator
       installed: true
 
-  # Unbind App section of helmfile.yaml
   - name: unbind-app
     namespace: '{{ .Values.namespace }}'
-    chart: ./charts/unbind  # Local path to your chart
+    chart: ./charts/unbind
     needs:
       - valkey
       - database
       - buildkit
       - registry
-      - dex # Added dependency
+      - dex
     hooks:
-      # ... (presync hook for secret creation remains the same) ...
       - events: ["presync"]
         showlogs: true
         command: "/bin/sh"
         args:
           - "-c"
           - |
-            # Exit on error, treat unset variables as errors
             set -eu
 
             NAMESPACE="{{ .Values.namespace }}"
@@ -954,55 +897,39 @@ releases:
             NC='\033[0m'
             YELLOW='\033[0;33m'
 
-            # Function to safely create a secret if it doesn't exist
-            # Usage: safe_create_secret <secret-name-for-checks> <kubectl create secret args...>
             safe_create_secret() {
-              local name="$1" # Secret name for messages and 'get' check
-              shift          # Remove the name, $@ now holds args for 'create'
+              local name="$1"
+              shift
 
               echo "Ensuring $name secret exists..."
-              # Try creating using the remaining arguments ($@)
-              # Suppress stdout/stderr on the create attempt
               if kubectl create secret "$@" >/dev/null 2>&1; then
                 echo -e "${GREEN}✓ Created $name secret${NC}"
-                return 0 # Success
+                return 0
               else
-                # Creation failed, check if it's because it already exists
                 if kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
                   echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
-                  return 0 # Success (already exists)
+                  return 0
                 else
-                  # It failed AND it doesn't exist -> indicates a real error
                   echo "Error: Failed to create $name secret and it does not exist. Check permissions or kubectl logs." >&2
-                  return 1 # Indicate failure
+                  return 1
                 fi
               fi
             }
 
-            # === Part 1: Auth.js Secret ===
             echo "Processing unbind-authjs-secrets..."
-            # Generate potential secret value (only used if creation happens)
             AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 
-            # Call the function to handle creation/checking idempotently
             if ! safe_create_secret "unbind-authjs-secrets" generic unbind-authjs-secrets \
               --namespace="$NAMESPACE" \
               --from-literal=auth-secret="${AUTH_SECRET}"; then
-              # Function returned failure (a real error occurred, not just AlreadyExists)
               echo "Error: Failed to ensure unbind-authjs-secrets exists. Halting hook." >&2
-              # set -eu will cause script to exit non-zero here anyway
               exit 1
             fi
 
-            # === Part 2: Dex Client Secrets (Ensure consistency with Dex hook) ===
-            # Note: This might be redundant if the Dex presync hook always runs first,
-            # but keeping it ensures the secret exists even if only unbind-app is deployed/upgraded.
             echo "Processing dex-client-secrets..."
-            # Generate potential secret values (only used if creation happens)
             CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
             CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
 
-            # Call the function to handle creation/checking idempotently
             if ! safe_create_secret "dex-client-secrets" generic dex-client-secrets \
               --namespace="$NAMESPACE" \
               --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
@@ -1013,24 +940,19 @@ releases:
 
             echo "Secret checks/creation complete."
     values:
-      # Global values
       - global:
           namespace: '{{ .Values.namespace }}'
-          baseDomain: '{{ .Values.baseDomain }}'
 
-      # Define ingress defaults used by sub-components if not overridden
       - ingress:
-          enabled: true # Master switch for ingress resources in this chart
-          host: {{ printf "unbind.%s" .Values.baseDomain }}
-          className: {{ .Values | get "overrides.ingress.className" "nginx" }} # Global override for class
-          # Common annotations can go here
+          enabled: true
+          host: {{ .Values.unbindDomain }}
+          className: {{ .Values | get "overrides.ingress.className" "nginx" }}
           annotations:
              kubernetes.io/tls-acme: "true"
              nginx.ingress.kubernetes.io/ssl-redirect: "true"
           tls:
             secretName: {{ .Values.tlsSecretName }}
 
-      # UI Configuration
       - ui:
           enabled: true
           name: unbind-ui
@@ -1051,32 +973,29 @@ releases:
             type: ClusterIP
             port: 3000
           ingress:
-            enabled: true # Controlled by global .Values.ingress.enabled potentially
-            # Path defaults to '/' from the chart's ingress template if not specified here
+            enabled: true
           env:
             - name: AUTH_SECRET
               valueFrom:
                 secretKeyRef:
                   name: unbind-authjs-secrets
                   key: auth-secret
-            - name: AUTH_URL # Internal NextAuth endpoint
-              value: {{ printf "https://unbind.%s/api-internal/auth" .Values.baseDomain }}
-            - name: DEX_CLIENT_ID # Client ID UI uses to talk to Dex
+            - name: AUTH_URL
+              value: {{ printf "https://%s/api-internal/auth" .Values.unbindDomain }}
+            - name: DEX_CLIENT_ID
               value: {{ .Values | get "overrides.unbind.ui.dex.clientId" "unbind-api" }}
-            - name: DEX_CLIENT_SECRET # Secret UI uses to talk to Dex
+            - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values | get "overrides.unbind.ui.dex.secretName" "dex-client-secrets" }}
                   key: {{ .Values | get "overrides.unbind.ui.dex.secretKey" "unbind-api-secret" }}
-            # Update Dex Issuer URL to use the new path
             - name: DEX_ISSUER
-              value: {{ printf "https://unbind.%s/api/dex" .Values.baseDomain }}
-            - name: UNBIND_API_PUBLIC_URL # Public URL for browser to reach API
-              value: {{ printf "https://unbind.%s/api/go" .Values.baseDomain }}
-            - name: SITE_URL # Base site URL
-              value: {{ printf "https://unbind.%s" .Values.baseDomain }}
+              value: {{ printf "https://%s/api/dex" .Values.unbindDomain }}
+            - name: UNBIND_API_PUBLIC_URL
+              value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
+            - name: SITE_URL
+              value: {{ printf "https://%s" .Values.unbindDomain }}
 
-      # API Configuration
       - api:
           enabled: true
           name: unbind-api
@@ -1097,18 +1016,19 @@ releases:
             type: ClusterIP
             port: 8089
           ingress:
-            enabled: true # Controlled by global .Values.ingress.enabled potentially
-            # Path defaults to '/api' from the chart's ingress template if not specified here
+            enabled: true
           command: ["/app/api"]
           env:
             - name: SYSTEM_NAMESPACE
               value: {{ .Values.namespace }}
             - name: EXTERNAL_UI_URL
-              value: {{ printf "https://unbind.%s" .Values.baseDomain }}
+              value: {{ printf "https://%s" .Values.unbindDomain }}
             - name: EXTERNAL_API_URL
-              value: {{ printf "https://unbind.%s/api/go" .Values.baseDomain }}
-            - name: EXTERNAL_WILDCARD_BASE_URL
-              value: {{ printf "https://%s" .Values.baseDomain }}
+              value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
+            {{- if ne .Values.wildcardBaseDomain "" }}
+            - name: BOOTSTRAP_WILDCARD_BASE_URL
+              value: {{ printf "https://%s" .Values.wildcardBaseDomain }}
+            {{- end }}
             - name: POSTGRES_HOST
               value: {{ .Values | get "overrides.unbind.api.database.host" (printf "pg-unbind.%s" .Values.namespace) }}
             - name: POSTGRES_PORT
@@ -1127,12 +1047,11 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.database.name" "unbind" }}
             - name: VALKEY_URL
               value: {{ .Values | get "overrides.unbind.api.valkey.url" (printf "valkey-headless.%s:6379" .Values.namespace) }}
-            # Update Dex URLs to use the new path
-            - name: DEX_ISSUER_URL # Internal URL API uses to validate tokens (might be service FQDN or ingress)
-              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrl" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
-            - name: DEX_ISSUER_URL_EXTERNAL # Public URL API might need to construct redirects etc.
-              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrlExternal" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
-            - name: DEX_CLIENT_ID # Client ID API uses to talk to Dex (e.g., for callbacks)
+            - name: DEX_ISSUER_URL
+              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+            - name: DEX_ISSUER_URL_EXTERNAL
+              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrlExternal" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+            - name: DEX_CLIENT_ID
               value: {{ .Values | get "overrides.unbind.api.dex.clientId" "unbind-api" }}
             - name: DEX_CLIENT_SECRET
               valueFrom:
@@ -1145,9 +1064,8 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.buildImager" "unbindapp/unbind-builder:latest" }}
             - name: BUILDER_NAMESPACE
               value: {{ .Values.namespace }}
-            # Update Registry Host URL to use the new path
             - name: BOOTSTRAP_CONTAINER_REGISTRY_HOST
-              value: {{ .Values | get "overrides.unbind.api.registry.host" (printf "unbind-registry.%s" .Values.baseDomain) }}
+              value: {{ .Values | get "overrides.unbind.api.registry.host" .Values.unbindRegistryDomain }}
             - name: BOOTSTRAP_CONTAINER_REGISTRY_USER
               valueFrom:
                 secretKeyRef:
@@ -1170,7 +1088,6 @@ releases:
             - name: PROMETHEUS_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.prometheus.endpoint" (printf "http://kube-prometheus-stack-prometheus.%s:9090" .Values.namespace) }}
 
-      # Auth Service Configuration
       - auth:
           enabled: true
           name: unbind-auth
@@ -1191,15 +1108,13 @@ releases:
             type: ClusterIP
             port: 8090
           ingress:
-            enabled: true # Controlled by global .Values.ingress.enabled potentially
-            # Path defaults to '/api/oauth2' from the chart's ingress template if not specified here
+            enabled: true
           command: ["/app/oauth2server"]
           env:
             - name: SYSTEM_NAMESPACE
               value: {{ .Values.namespace }}
-            # This is the external URL *of this auth service*
             - name: EXTERNAL_OAUTH2_URL
-              value: {{ printf "https://unbind.%s/api/oauth2" .Values.baseDomain }}
+              value: {{ printf "https://%s/api/oauth2" .Values.unbindDomain }}
             - name: POSTGRES_HOST
               value: {{ .Values | get "overrides.unbind.auth.database.host" (printf "pg-unbind.%s" .Values.namespace) }}
             - name: POSTGRES_PORT
@@ -1214,19 +1129,18 @@ releases:
                 secretKeyRef:
                   name: {{ .Values | get "overrides.unbind.auth.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
                   key: password
-            # Update Dex URLs to use the new path
-            - name: DEX_ISSUER_URL # Where this auth service validates tokens from Dex
-              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrl" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
-            - name: DEX_ISSUER_URL_EXTERNAL # External URL if needed
-              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrlExternal" (printf "https://unbind.%s/api/dex" .Values.baseDomain) }}
-            - name: DEX_CLIENT_ID # Client ID this service uses when talking *to* Dex (e.g. for its own OIDC connector config)
-              value: {{ .Values | get "overrides.unbind.auth.dex.clientId" "dex-client" }} # Matches connector clientID in Dex config
-            - name: DEX_CLIENT_SECRET # Secret for the client ID above
+            - name: DEX_ISSUER_URL
+              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+            - name: DEX_ISSUER_URL_EXTERNAL
+              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrlExternal" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+            - name: DEX_CLIENT_ID
+              value: {{ .Values | get "overrides.unbind.auth.dex.clientId" "dex-client" }}
+            - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
-                  key: {{ .Values | get "overrides.unbind.auth.dex.secretKey" "connector-oidc-secret" }} # Matches connector secret in Dex config
-            - name: DEX_CONNECTOR_SECRET # This seems duplicated - remove if DEX_CLIENT_SECRET above is correct
+                  key: {{ .Values | get "overrides.unbind.auth.dex.secretKey" "connector-oidc-secret" }}
+            - name: DEX_CONNECTOR_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
@@ -1234,7 +1148,6 @@ releases:
             - name: VALKEY_URL
               value: {{ .Values | get "overrides.unbind.auth.valkey.url" (printf "valkey-headless.%s:6379" .Values.namespace) }}
 
-      # Service Account and RBAC
       - serviceAccount:
           create: true
           name: unbind-api-sa

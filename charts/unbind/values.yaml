@@ -1,7 +1,6 @@
 # Global settings
 global:
   namespace: "unbind-system"
-  baseDomain: "example.com"
 
 # ServiceAccount
 serviceAccount:
@@ -149,7 +148,7 @@ api:
       value: "https://unbind.example.com"
     - name: EXTERNAL_API_URL
       value: "https://unbind.example.com/api"
-    - name: EXTERNAL_WILDCARD_BASE_URL
+    - name: BOOTSTRAP_WILDCARD_BASE_URL
       value: "https://example.com"
     - name: POSTGRES_HOST
       value: "pg-unbind"
