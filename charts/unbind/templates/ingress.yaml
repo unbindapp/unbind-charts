@@ -33,7 +33,7 @@ spec:
   - host: {{ .Values.ingress.host }}
     http:
       paths:
-      - path: /api(/|$)(.*)
+      - path: /api/go(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
           service:

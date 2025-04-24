@@ -1077,7 +1077,7 @@ releases:
             - name: DEX_ISSUER
               value: {{ printf "https://unbind.%s/api/dex" .Values.baseDomain }}
             - name: UNBIND_API_PUBLIC_URL # Public URL for browser to reach API
-              value: {{ printf "https://unbind.%s/api" .Values.baseDomain }}
+              value: {{ printf "https://unbind.%s/api/go" .Values.baseDomain }}
             - name: SITE_URL # Base site URL
               value: {{ printf "https://unbind.%s" .Values.baseDomain }}
 
@@ -1111,7 +1111,7 @@ releases:
             - name: EXTERNAL_UI_URL
               value: {{ printf "https://unbind.%s" .Values.baseDomain }}
             - name: EXTERNAL_API_URL
-              value: {{ printf "https://unbind.%s/api" .Values.baseDomain }}
+              value: {{ printf "https://unbind.%s/api/go" .Values.baseDomain }}
             - name: EXTERNAL_WILDCARD_BASE_URL
               value: {{ printf "https://%s" .Values.baseDomain }}
             - name: POSTGRES_HOST
