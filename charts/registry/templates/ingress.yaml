@@ -7,8 +7,6 @@ metadata:
     kubernetes.io/tls-acme: "true"
     # Enable basic auth (nginx ingress annotation example)
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
@@ -31,8 +29,8 @@ spec:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
-          - path: /api/docker-registry(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: docker-registry

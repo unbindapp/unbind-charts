@@ -292,11 +292,6 @@ releases:
         resources: {}
         replicaCount: {{ .Values | get "overrides.buildkitd.replicas" }}
         image: {{ .Values | get "overrides.buildkitd.image" }}
-        # buildkit connects internally to the registry service, no ingress path needed here
-        registries:
-          - url: {{ .Values | get "overrides.buildkitd.registryInternal" (printf "docker-registry.%s:5000" (.Values.namespace)) }}
-            http: true
-            insecure: true
 
     labels:
       component: build
@@ -491,7 +486,7 @@ releases:
       -
         ingress:
           enabled: true
-          host: {{ .Values | get "overrides.registry.ingress.host" (printf "unbind.%s" .Values.baseDomain) }}
+          host: {{ .Values | get "overrides.registry.ingress.host" (printf "unbind-registry.%s" .Values.baseDomain) }}
           authSecret: registry-basic-auth
           tls:
             secretName: {{ .Values.tlsSecretName }}
@@ -1152,7 +1147,7 @@ releases:
               value: {{ .Values.namespace }}
             # Update Registry Host URL to use the new path
             - name: BOOTSTRAP_CONTAINER_REGISTRY_HOST
-              value: {{ .Values | get "overrides.unbind.api.registry.host" (printf "unbind.%s/api/docker-registry" .Values.baseDomain) }}
+              value: {{ .Values | get "overrides.unbind.api.registry.host" (printf "unbind-registry.%s" .Values.baseDomain) }}
             - name: BOOTSTRAP_CONTAINER_REGISTRY_USER
               valueFrom:
                 secretKeyRef:
