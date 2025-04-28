@@ -512,6 +512,7 @@ releases:
             use-forwarded-headers: "true"
             compute-full-forwarded-for: "true"
             use-proxy-protocol: "false"
+            annotations-risk-level: "Critical"
           resources:
             requests:
               cpu: 10m
