@@ -252,6 +252,8 @@ auth:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
   command: ["/app/oauth2server"]
   env:
+    - name: EXTERNAL_UI_URL
+      value: "https://unbind.example.com"
     - name: SYSTEM_NAMESPACE
       value: "unbind-system"
     - name: EXTERNAL_OAUTH2_URL
