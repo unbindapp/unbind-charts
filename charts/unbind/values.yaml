@@ -202,7 +202,7 @@ api:
           name: registry-credentials
           key: password
     - name: BUILDKIT_HOST
-      value: tcp://buildkitd.unbind-system:1234
+      value: tcp://buildkit.unbind-system:1234
     - name: LOKI_ENDPOINT
       value: http://loki-gateway.unbind-system.svc.cluster.local
     - name: PROMETHEUS_ENDPOINT

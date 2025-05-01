@@ -1102,7 +1102,7 @@ releases:
                     {{- if $hostValue }}
                     {{- $hostValue }}
                     {{- else }}
-                    {{- printf "tcp://buildkitd.%s:1234" .Values.namespace }}
+                    {{- printf "tcp://buildkit.%s:1234" .Values.namespace }}
                     {{- end }}
             - name: LOKI_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-gateway.%s.svc.cluster.local" .Values.namespace) }}
