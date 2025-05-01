@@ -322,7 +322,7 @@ releases:
         configKubernetes:
           inherited_labels:
             - unbind-team
-            - unbing-project
+            - unbind-project
             - unbind-environment
             - unbind-service
             - unbind-deployment
