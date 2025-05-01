@@ -30,9 +30,9 @@ environments:
       - environments/default.yaml
 
 helmDefaults:
-  wait: true
-  timeout: 600
-  atomic: true
+  wait: false
+  atomic: false
+  timeout: 300
   createNamespace: true
 ---
 releases:
@@ -878,12 +878,29 @@ releases:
   - name: unbind-app
     namespace: '{{ .Values.namespace }}'
     chart: ./charts/unbind
+    wait: true
+    atomic: true  
+    timeout: 900
     needs:
       - valkey
       - database
       - buildkit
       - registry
     hooks:
+      - events: ["postsync"]   
+        showlogs: true                         
+        command: "/bin/sh"
+        args:
+          - "-c"
+          - |
+            NS="{{ .Values.namespace }}"
+            echo "🔄  Restarting Dex deployments in namespace ${NS} …"
+
+            # 1. Try the modern rollout-restart (preferred, respects deployment strategy)
+            if kubectl -n "${NS}" rollout restart deployment \
+                -l app.kubernetes.io/instance=dex; then
+              echo "✅  Dex restart triggered with 'kubectl rollout restart'"
+            fi
       - events: ["presync"]
         showlogs: true
         command: "/bin/sh"
