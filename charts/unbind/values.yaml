@@ -89,8 +89,12 @@ ui:
           key: unbind-api-secret
     - name: DEX_ISSUER
       value: "https://dex.example.com"
-    - name: UNBIND_API_PUBLIC_URL
+    - name: UNBIND_API_EXTERNAL_URL
       value: "https://unbind.example.com/api"
+    - name: UNBIND_API_INTERNAL_URL
+      value: "http://unbind-api.unbind-system.svc.cluster.local:8089"
+    - name: UNBIND_API_AUTH_EXTERNAL_URL
+      value: "https://unbind.example.com/api/oauth2"
     - name: SITE_URL
       value: "https://unbind.example.com"
   startupProbe:

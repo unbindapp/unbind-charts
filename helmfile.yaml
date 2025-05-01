@@ -688,8 +688,8 @@ releases:
     values:
       -
         image:
-          repository: ghcr.io/dexidp/dex
-          tag: "{{ .Values | get "overrides.dex.version" "v2.42.0" }}"
+          repository: unbindapp/dex
+          tag: master-14777142866
           pullPolicy: IfNotPresent
 
         replicaCount: {{ .Values | get "overrides.dex.replicaCount" 2 }}
@@ -991,8 +991,12 @@ releases:
                   key: {{ .Values | get "overrides.unbind.ui.dex.secretKey" "unbind-api-secret" }}
             - name: DEX_ISSUER
               value: {{ printf "https://%s/api/dex" .Values.unbindDomain }}
-            - name: UNBIND_API_PUBLIC_URL
+            - name: UNBIND_API_EXTERNAL_URL
               value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
+            - name: UNBIND_API_INTERNAL_URL
+              value: {{ printf "http://unbind-api.%s.svc.cluster.local:8089" .Values.namespace }}
+            - name: UNBIND_API_AUTH_EXTERNAL_URL
+              value: {{ printf "https://%s/api/oauth2" .Values.unbindDomain }}
             - name: SITE_URL
               value: {{ printf "https://%s" .Values.unbindDomain }}
 
