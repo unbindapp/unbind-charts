@@ -93,8 +93,6 @@ ui:
       value: "https://unbind.example.com/api"
     - name: UNBIND_API_INTERNAL_URL
       value: "http://unbind-api.unbind-system.svc.cluster.local:8089"
-    - name: UNBIND_API_AUTH_EXTERNAL_URL
-      value: "https://unbind.example.com/api/oauth2"
     - name: SITE_URL
       value: "https://unbind.example.com"
   startupProbe:
@@ -152,6 +150,8 @@ api:
       value: "https://unbind.example.com"
     - name: EXTERNAL_API_URL
       value: "https://unbind.example.com/api"
+    - name: EXTERNAL_OAUTH2_URL
+      value: "https://unbind.example.com/api/oauth2"
     - name: BOOTSTRAP_WILDCARD_BASE_URL
       value: "https://example.com"
     - name: POSTGRES_HOST

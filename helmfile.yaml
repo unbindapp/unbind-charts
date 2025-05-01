@@ -1012,8 +1012,6 @@ releases:
               value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
             - name: UNBIND_API_INTERNAL_URL
               value: {{ printf "http://unbind-api.%s.svc.cluster.local:8089" .Values.namespace }}
-            - name: UNBIND_API_AUTH_EXTERNAL_URL
-              value: {{ printf "https://%s/api/oauth2" .Values.unbindDomain }}
             - name: SITE_URL
               value: {{ printf "https://%s" .Values.unbindDomain }}
 
@@ -1046,6 +1044,8 @@ releases:
               value: {{ printf "https://%s" .Values.unbindDomain }}
             - name: EXTERNAL_API_URL
               value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
+            - name: EXTERNAL_OAUTH2_URL
+              value: {{ printf "https://%s/api/oauth2" .Values.unbindDomain }}
             {{- if ne .Values.wildcardBaseDomain "" }}
             - name: BOOTSTRAP_WILDCARD_BASE_URL
               value: {{ printf "https://%s" .Values.wildcardBaseDomain }}
