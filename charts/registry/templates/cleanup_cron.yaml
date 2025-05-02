@@ -88,7 +88,12 @@ spec:
               
               # Convert MAX_STORAGE to bytes
               # Convert MAX_STORAGE (e.g. "3Gi" or "500M") to a plain-integer byte count
-              MAX_SIZE_BYTES=$(numfmt --from=iec --to=none "$MAX_STORAGE")
+              # Two-letter suffix (Gi/Mi/Ki)?  use “iec-i”.  Otherwise assume one-letter.
+              if [[ "$MAX_STORAGE" =~ [0-9]+[KMGTP]i$ ]]; then
+                  MAX_SIZE_BYTES=$(numfmt --from=iec-i "$MAX_STORAGE")
+              else
+                  MAX_SIZE_BYTES=$(numfmt --from=iec    "$MAX_STORAGE")
+              fi
 
               # Fallback for very old coreutils that lack --from=iec
               if ! [[ "$MAX_SIZE_BYTES" =~ ^[0-9]+$ ]]; then
