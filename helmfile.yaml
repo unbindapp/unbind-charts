@@ -371,11 +371,11 @@ releases:
         commonConfiguration: |-
           appendonly yes
           protected-mode no
-        persistence:
-          enabled: true
-          size: 1Gi
         primary:
           replicaCount: 1
+          persistence:
+            enabled: true
+            size: 1Gi
           resources:
             requests:
               memory: "10Mi"
