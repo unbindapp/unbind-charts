@@ -23,6 +23,7 @@ values:
  - namespace: unbind-system
  - tlsSecretName: unbind-domain-tls
  - registryTlsSecretName: unbind-registry-domain-tls
+ - unbindVersion: v0.0.4
 
 environments:
   default:
@@ -829,8 +830,8 @@ releases:
       -
         replicaCount: {{ .Values | get "overrides.kubeOidcProxy.replicaCount" 2 }}
         image:
-          repository: {{ .Values | get "overrides.kubeOidcProxy.image.repository" "unbindapp/kube-oidc-proxy" }}
-          tag: {{ .Values | get "overrides.kubeOidcProxy.image.tag" "master-13812109543" }}
+          repository: {{ .Values | get "overrides.kubeOidcProxy.image.repository" "ghcr.io/unbindapp/kube-oidc-proxy" }}
+          tag: {{ .Values | get "overrides.kubeOidcProxy.image.tag" "master-14884925050" }}
           pullPolicy: {{ .Values | get "overrides.kubeOidcProxy.image.pullPolicy" "IfNotPresent" }}
 
         oidc:
@@ -869,8 +870,8 @@ releases:
         controllerManager:
           container:
             image:
-              repository: {{ .Values | get "overrides.unbind.operator.repository" "unbindapp/unbind-operator" }}
-              tag: {{ .Values | get "overrides.unbind.operator.tag" "latest" }}
+              repository: {{ .Values | get "overrides.unbind.operator.repository" "ghcr.io/unbindapp/unbind-operator" }}
+              tag: {{ .Values.unbindVersion }}
     labels:
       component: unbind-operator
       installed: true
@@ -974,8 +975,8 @@ releases:
           enabled: true
           name: unbind-ui
           image:
-            repository: {{ .Values | get "overrides.unbind.ui.repository" "unbindapp/unbind-ui" }}
-            tag: {{ .Values | get "overrides.unbind.ui.tag" "latest" }}
+            repository: {{ .Values | get "overrides.unbind.ui.repository" "ghcr.io/unbindapp/unbind-ui" }}
+            tag: {{ .Values.unbindVersion }}
             pullPolicy: {{ .Values | get "overrides.unbind.ui.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.ui.replicaCount" 2 }}
           resources:
@@ -1019,8 +1020,8 @@ releases:
           enabled: true
           name: unbind-api
           image:
-            repository: {{ .Values | get "overrides.unbind.api.repository" "unbindapp/unbind-api" }}
-            tag: {{ .Values | get "overrides.unbind.api.tag" "latest" }}
+            repository: {{ .Values | get "overrides.unbind.api.repository" "ghcr.io/unbindapp/unbind-api" }}
+            tag: {{ .Values.unbindVersion }}
             pullPolicy: {{ .Values | get "overrides.unbind.api.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.api.replicaCount" 2 }}
           resources:
@@ -1081,8 +1082,6 @@ releases:
                   key: {{ .Values | get "overrides.unbind.api.dex.secretKey" "unbind-api-secret" }}
             - name: KUBE_PROXY_URL
               value: {{ .Values | get "overrides.unbind.api.kubeProxyUrl" (printf "https://kube-oidc-proxy.%s.svc.cluster.local:443" .Values.namespace) }}
-            - name: BUILD_IMAGER
-              value: {{ .Values | get "overrides.unbind.api.buildImager" "unbindapp/unbind-builder:latest" }}
             - name: BUILDER_NAMESPACE
               value: {{ .Values.namespace }}
             - name: BOOTSTRAP_CONTAINER_REGISTRY_HOST
@@ -1113,8 +1112,8 @@ releases:
           enabled: true
           name: unbind-auth
           image:
-            repository: {{ .Values | get "overrides.unbind.auth.repository" "unbindapp/unbind-api" }}
-            tag: {{ .Values | get "overrides.unbind.auth.tag" "latest" }}
+            repository: {{ .Values | get "overrides.unbind.auth.repository" "ghcr.io/unbindapp/unbind-api" }}
+            tag: {{ .Values.unbindVersion }}
             pullPolicy: {{ .Values | get "overrides.unbind.auth.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.auth.replicaCount" 2 }}
           resources:

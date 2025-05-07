@@ -147,13 +147,11 @@ overrides:
   unbind:
     # Unbind operator settings
     operator:
-      repository: unbindapp/unbind-operator
-      tag: latest
+      repository: ghcr.io/unbindapp/unbind-operator
 
     # UI Configuration
     ui:
-      repository: unbindapp/unbind-ui
-      tag: latest
+      repository: ghcr.io/unbindapp/unbind-ui
       pullPolicy: Always
       replicaCount: 1
       # Additional settings for UI
@@ -164,8 +162,7 @@ overrides:
 
     # API Configuration
     api:
-      repository: unbindapp/unbind-api
-      tag: latest
+      repository: ghcr.io/unbindapp/unbind-api
       pullPolicy: Always
       replicaCount: 1
       # Database configuration for API
@@ -206,8 +203,7 @@ overrides:
 
     # Auth Service Configuration
     auth:
-      repository: unbindapp/unbind-api
-      tag: latest
+      repository: ghcr.io/unbindapp/unbind-api
       pullPolicy: Always
       replicaCount: 1
       # Database configuration for Auth
