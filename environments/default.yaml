@@ -47,7 +47,7 @@ overrides:
     replicas: 1
     maxParallism: 2
   postgresOperator:
-    spiloImage: unbindapp/spilo:17-latest
+    spiloImage: ghcr.io/unbindapp/spilo:17-latest
   database:
     replicaCount: 1
     storage: "2Gi"
