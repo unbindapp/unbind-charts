@@ -72,7 +72,7 @@ releases:
   - name: kube-prometheus-stack
     namespace: {{ .Values.namespace }}
     chart: prometheus-community/kube-prometheus-stack
-    version: 70.4.0
+    version: 72.2.0
     hooks:
       - events: ["presync"]
         showlogs: true
@@ -103,7 +103,7 @@ releases:
   - name: alloy
     namespace: {{ .Values.namespace }}
     chart: grafana/alloy
-    version: 0.12.6
+    version: 1.0.3
     values:
       -
         alloy:
@@ -364,7 +364,7 @@ releases:
   - name: valkey
     namespace: {{ .Values.namespace }}
     chart: bitnami/valkey
-    version: 3.0.1
+    version: 3.0.4
     values:
       - architecture: standalone
         auth:
@@ -489,7 +489,7 @@ releases:
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
     chart: ingress-nginx/ingress-nginx
-    version: 4.12.1
+    version: 4.12.2
     values:
       -
         controller:
@@ -498,7 +498,7 @@ releases:
           image:
             registry: registry.k8s.io
             image: ingress-nginx/controller
-            tag: "v1.12.1"
+            tag: "v1.12.2"
             digest: sha256:d2fbc4ec70d8aa2050dd91a91506e998765e86c96f32cffb56c503c9c34eed5b
           ingressClassResource:
             name: nginx
@@ -530,7 +530,7 @@ releases:
   - name: cert-manager
     namespace: {{ .Values.namespace }}
     chart: jetstack/cert-manager
-    version: 1.17.1
+    version: 1.17.2
     hooks:
       - events: ["presync"]
         showlogs: true
