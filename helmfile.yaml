@@ -23,7 +23,7 @@ values:
  - namespace: unbind-system
  - tlsSecretName: unbind-domain-tls
  - registryTlsSecretName: unbind-registry-domain-tls
- - unbindVersion: v0.0.7
+ - unbindVersion: v0.0.10
 
 environments:
   default:
