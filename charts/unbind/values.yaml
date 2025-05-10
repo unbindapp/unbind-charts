@@ -170,8 +170,8 @@ api:
           key: password
     - name: POSTGRES_DB
       value: "unbind"
-    - name: VALKEY_URL
-      value: valkey-headless.unbind-system:6379
+    - name: REDIS_URL
+      value: redis-headless.unbind-system:6379
     - name: DEX_ISSUER_URL
       value: "https://dex.example.com"
     - name: DEX_ISSUER_URL_EXTERNAL
@@ -288,8 +288,8 @@ auth:
         secretKeyRef:
           name: dex-client-secrets
           key: connector-oidc-secret
-    - name: VALKEY_URL
-      value: valkey-headless.unbind-system:6379
+    - name: REDIS_URL
+      value: redis-headless.unbind-system:6379
   startupProbe:
     enabled: true
     path: "/health"

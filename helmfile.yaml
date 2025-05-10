@@ -359,10 +359,10 @@ releases:
       component: database
       installed: {{ .Values | get "components.database.enabled" true }}
 
-  - name: valkey
+  - name: redis
     namespace: {{ .Values.namespace }}
-    chart: bitnami/valkey
-    version: 3.0.4
+    chart: bitnami/redis
+    version: 21.0.2
     values:
       - architecture: standalone
         auth:
@@ -385,8 +385,8 @@ releases:
         replica:
           replicaCount: 0
     labels:
-      component: valkey
-      installed: {{ .Values | get "components.valkey.enabled" true }}
+      component: redis
+      installed: {{ .Values | get "components.redis.enabled" true }}
 
   - name: registry
     namespace: {{ .Values.namespace }}
@@ -880,7 +880,7 @@ releases:
     atomic: true  
     timeout: 900
     needs:
-      - valkey
+      - redis
       - database
       - cert-manager
     hooks:
@@ -1063,8 +1063,8 @@ releases:
                   key: password
             - name: POSTGRES_DB
               value: {{ .Values | get "overrides.unbind.api.database.name" "unbind" }}
-            - name: VALKEY_URL
-              value: {{ .Values | get "overrides.unbind.api.valkey.url" (printf "valkey-headless.%s:6379" .Values.namespace) }}
+            - name: REDIS_URL
+              value: {{ .Values | get "overrides.unbind.api.redis.url" (printf "redis-headless.%s:6379" .Values.namespace) }}
             - name: DEX_ISSUER_URL
               value: {{ .Values | get "overrides.unbind.api.dex.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
             - name: DEX_ISSUER_URL_EXTERNAL
@@ -1163,8 +1163,8 @@ releases:
                 secretKeyRef:
                   name: {{ .Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
                   key: connector-oidc-secret
-            - name: VALKEY_URL
-              value: {{ .Values | get "overrides.unbind.auth.valkey.url" (printf "valkey-headless.%s:6379" .Values.namespace) }}
+            - name: REDIS_URL
+              value: {{ .Values | get "overrides.unbind.auth.redis.url" (printf "redis-headless.%s:6379" .Values.namespace) }}
 
       - serviceAccount:
           create: true

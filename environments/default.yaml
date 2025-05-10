@@ -12,7 +12,7 @@ components:
     enabled: true
   database:
     enabled: true
-  valkey:
+  redis:
     enabled: true
   alloy:
     enabled: true
@@ -177,9 +177,9 @@ overrides:
         clientId: unbind-api
         secretName: dex-client-secrets
         secretKey: unbind-api-secret
-      # Valkey Redis configuration
-      valkey:
-        url: valkey-headless.unbind-system:6379
+      # Redis Redis configuration
+      redis:
+        url: redis-headless.unbind-system:6379
       # Kube proxy configuration
       kubeProxyUrl: https://kube-oidc-proxy.unbind-system.svc.cluster.local:443
       # Builder configuration
@@ -217,9 +217,9 @@ overrides:
         clientId: unbind-api
         secretName: dex-client-secrets
         secretKey: unbind-api-secret
-      # Valkey Redis configuration
-      valkey:
-        url: valkey-headless.unbind-system:6379
+      # Redis Redis configuration
+      redis:
+        url: redis-headless.unbind-system:6379
       resources:
         limits:
           cpu: 250m
