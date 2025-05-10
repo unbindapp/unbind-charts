@@ -374,7 +374,7 @@ releases:
           replicaCount: 1
           persistence:
             enabled: true
-            size: 1Gi
+            size: 512Mi
           resources:
             requests:
               memory: "10Mi"
