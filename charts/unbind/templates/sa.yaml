@@ -182,7 +182,6 @@ roleRef:
   name: {{ include "unbind.fullname" . }}-services-admin
   apiGroup: rbac.authorization.k8s.io
 ---
-# ClusterRoleBinding for cluster resources reader
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -198,7 +197,6 @@ roleRef:
   name: {{ include "unbind.fullname" . }}-cluster-resources-reader
   apiGroup: rbac.authorization.k8s.io
 ---
-# NEW: ClusterRoleBinding for resource manager
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -214,7 +212,6 @@ roleRef:
   name: {{ include "unbind.fullname" . }}-resource-manager
   apiGroup: rbac.authorization.k8s.io
 ---
-# NEW: Role for secrets in default namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -227,7 +224,6 @@ rules:
     resources: ["secrets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
-# NEW: RoleBinding for secrets in default namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -242,5 +238,31 @@ subjects:
 roleRef:
   kind: Role
   name: {{ include "unbind.fullname" . }}-default-secret-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "unbind.fullname" . }}-node-reader
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "unbind.fullname" . }}-node-reader-binding
+  labels:
+    {{- include "unbind.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "unbind.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "unbind.fullname" . }}-node-reader
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
