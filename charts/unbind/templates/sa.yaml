@@ -111,6 +111,9 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["longhorn.io"]
+    resources: ["volumes", "volumeattachments", "engines", "replicas", "settings", "nodes"]
+    verbs: ["get", "list", "watch"]
 ---
 # NEW: ClusterRole for resource management permissions
 apiVersion: rbac.authorization.k8s.io/v1
