@@ -409,6 +409,7 @@ releases:
             NC='\033[0m'
             YELLOW='\033[0;33m'
             RED='\033[0;31m'
+            EXTERNAL_REGISTRY_ENABLED="{{ .Values | get "externalRegistry.enabled" false }}"
 
             retry_command() {
               local max_attempts=30
