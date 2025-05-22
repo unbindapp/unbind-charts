@@ -458,8 +458,7 @@ releases:
               kubectl create secret generic registry-credentials \
                 --namespace="$NAMESPACE" \
                 --from-literal=username="${REGISTRY_USERNAME}" \
-                --from-literal=password="${REGISTRY_PASSWORD}" \
-                --dry-run=client -o yaml | kubectl apply -f -
+                --from-literal=password="${REGISTRY_PASSWORD}"
               
               echo "Registry credentials created for external registry: $REGISTRY_HOST"
               exit 0
