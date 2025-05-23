@@ -72,7 +72,7 @@ releases:
           create: false
     labels:
       component: flux
-      installed: true
+    installed: true
 
   - name: kube-prometheus-stack
     namespace: {{ .Values.namespace }}
@@ -103,7 +103,7 @@ releases:
                       storage: {{ .Values | get "overrides.kubePrometheusStack.storage" }}
     labels:
       component: monitoring
-      installed: {{ .Values | get "components.kubePrometheusStack.enabled" true }}
+    installed: {{ .Values | get "components.kubePrometheusStack.enabled" true }}
 
   - name: alloy
     namespace: {{ .Values.namespace }}
@@ -187,7 +187,7 @@ releases:
 
     labels:
       component: alloy
-      installed: {{ .Values | get "components.alloy.enabled" true }}
+    installed: {{ .Values | get "components.alloy.enabled" true }}
 
   - name: loki
     namespace: {{ .Values.namespace }}
@@ -282,7 +282,7 @@ releases:
 
     labels:
       component: loki
-      installed: {{ .Values | get "components.loki.enabled" true }}
+    installed: {{ .Values | get "components.loki.enabled" true }}
 
   - name: buildkit
     namespace: {{ .Values.namespace }}
@@ -295,7 +295,7 @@ releases:
 
     labels:
       component: build
-      installed: {{ .Values | get "components.buildkitd.enabled" true }}
+    installed: {{ .Values | get "components.buildkitd.enabled" true }}
 
   - name: postgres-operator
     namespace: {{ .Values.namespace }}
@@ -342,7 +342,7 @@ releases:
 
     labels:
       component: postgres-operator
-      installed: {{ .Values | get "components.postgresOperator.enabled" true }}
+    installed: {{ .Values | get "components.postgresOperator.enabled" true }}
 
   - name: database
     namespace: {{ .Values.namespace }}
@@ -362,7 +362,7 @@ releases:
             memory: {{ .Values | get "overrides.database.resources.limits.memory" }}
     labels:
       component: database
-      installed: {{ .Values | get "components.database.enabled" true }}
+    installed: {{ .Values | get "components.database.enabled" true }}
 
   - name: redis
     namespace: {{ .Values.namespace }}
@@ -391,12 +391,11 @@ releases:
           replicaCount: 0
     labels:
       component: redis
-      installed: {{ .Values | get "components.redis.enabled" true }}
+    installed: {{ .Values | get "components.redis.enabled" true }}
 
   - name: registry
     namespace: {{ .Values.namespace }}
     chart: ./charts/registry
-    condition: {{ not (.Values | get "externalRegistry.enabled" false) }}
     hooks:
       - events: ["presync"]
         showlogs: true
@@ -489,7 +488,7 @@ releases:
     # Update the labels in registry component
     labels:
       component: registry
-      installed: {{ if .Values | get "externalRegistry.enabled" false }}false{{ else }}{{ .Values | get "components.registry.enabled" true }}{{ end }}
+    installed: {{ if .Values | get "externalRegistry.enabled" false }}false{{ else }}{{ .Values | get "components.registry.enabled" true }}{{ end }}
 
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
@@ -530,7 +529,7 @@ releases:
           create: true
     labels:
       component: ingress
-      installed: {{ .Values | get "components.ingressNginx.enabled" true }}
+    installed: {{ .Values | get "components.ingressNginx.enabled" true }}
 
   - name: cert-manager
     namespace: {{ .Values.namespace }}
@@ -579,7 +578,7 @@ releases:
           defaultIssuerGroup: cert-manager.io
     labels:
       component: cert-manager
-      installed: {{ .Values | get "components.certManager.enabled" true }}
+    installed: {{ .Values | get "components.certManager.enabled" true }}
 
   - name: dex
     namespace: {{ .Values.namespace }}
@@ -823,7 +822,7 @@ releases:
 
     labels:
       component: dex
-      installed: {{ .Values | get "components.dex.enabled" true }}
+    installed: {{ .Values | get "components.dex.enabled" true }}
 
   - name: kube-oidc-proxy
     namespace: {{ .Values.namespace }}
@@ -864,7 +863,7 @@ releases:
 
     labels:
       component: auth
-      installed: {{ .Values | get "components.kubeOidcProxy.enabled" true }}
+    installed: {{ .Values | get "components.kubeOidcProxy.enabled" true }}
 
   - name: unbind-operator
     namespace: {{ .Values.namespace }}
@@ -878,7 +877,7 @@ releases:
               tag: {{ .Values.unbindVersion }}
     labels:
       component: unbind-operator
-      installed: true
+    installed: true
 
   - name: unbind-app
     namespace: '{{ .Values.namespace }}'
@@ -1215,4 +1214,4 @@ releases:
 
     labels:
       component: unbind-app
-      installed: true
+    installed: true
