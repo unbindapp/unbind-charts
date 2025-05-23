@@ -488,7 +488,7 @@ releases:
     # Update the labels in registry component
     labels:
       component: registry
-      installed: "{{ if .Values | get \"externalRegistry.enabled\" false }}false{{ else }}{{ .Values | get \"components.registry.enabled\" true }}{{ end }}"
+      installed: {{ if .Values | get "externalRegistry.enabled" false }}false{{ else }}{{ .Values | get "components.registry.enabled" true }}{{ end }}
 
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
