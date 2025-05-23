@@ -396,6 +396,7 @@ releases:
   - name: registry
     namespace: {{ .Values.namespace }}
     chart: ./charts/registry
+    condition: {{ not (.Values | get "externalRegistry.enabled" false) }}
     hooks:
       - events: ["presync"]
         showlogs: true
