@@ -409,7 +409,6 @@ releases:
             NC='\033[0m'
             YELLOW='\033[0;33m'
             RED='\033[0;31m'
-            EXTERNAL_REGISTRY_ENABLED="{{ .Values | get "externalRegistry.enabled" false }}"
 
             retry_command() {
               local max_attempts=30
@@ -444,32 +443,6 @@ releases:
               fi
             fi
             echo -e "${GREEN}✓ Namespace '$NAMESPACE' exists${NC}"
-
-            # Modified part of registry presync hook
-            if [ "$EXTERNAL_REGISTRY_ENABLED" = "true" ]; then
-              echo "Using external registry. Creating registry credentials..."
-              
-              # Get external registry credentials
-              REGISTRY_HOST="{{ .Values | get "externalRegistry.host" "docker.io" }}"
-              REGISTRY_USERNAME="{{ .Values | get "externalRegistry.username" "" }}"
-              REGISTRY_PASSWORD="{{ .Values | get "externalRegistry.password" "" }}"
-              
-              # Create registry credentials for external registry using retry logic
-              echo "Creating registry-credentials secret for external registry..."
-              if ! retry_command "kubectl create secret generic registry-credentials --namespace=\"$NAMESPACE\" --from-literal=username=\"${REGISTRY_USERNAME}\" --from-literal=password=\"${REGISTRY_PASSWORD}\""; then
-                if kubectl get secret registry-credentials -n "$NAMESPACE" &>/dev/null; then
-                  echo -e "${YELLOW}Registry credentials secret already exists. Skipping creation.${NC}"
-                else
-                  echo -e "${RED}Failed to create registry-credentials secret after multiple attempts${NC}"
-                  exit 1
-                fi
-              fi
-              
-              echo -e "${GREEN}Registry credentials created for external registry: $REGISTRY_HOST${NC}"
-              exit 0
-            fi
-
-            # Continue with internal registry setup if external registry is not enabled
 
             echo "Checking for existing secret 'registry-basic-auth' in namespace '$NAMESPACE'..."
             if ! kubectl get secret registry-basic-auth -n "$NAMESPACE" &> /dev/null; then
@@ -515,7 +488,7 @@ releases:
     # Update the labels in registry component
     labels:
       component: registry
-      installed: {{ and (.Values | get "components.registry.enabled" true) (not (.Values | get "externalRegistry.enabled" false)) }}
+      installed: "{{ if .Values | get \"externalRegistry.enabled\" false }}false{{ else }}{{ .Values | get \"components.registry.enabled\" true }}{{ end }}"
 
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
@@ -619,7 +592,7 @@ releases:
         showlogs: true
         command: "/bin/sh"
         args:
-          - "-c"
+          - "-c"   
           - |
             set -eu
 
@@ -943,6 +916,7 @@ releases:
             GREEN='\033[0;32m'
             NC='\033[0m'
             YELLOW='\033[0;33m'
+            EXTERNAL_REGISTRY_ENABLED="{{ .Values | get "externalRegistry.enabled" false }}"
 
             safe_create_secret() {
               local name="$1"
@@ -983,6 +957,29 @@ releases:
               --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"; then
               echo "Error: Failed to ensure dex-client-secrets exists. Halting hook." >&2
               exit 1
+            fi
+
+            if [ "$EXTERNAL_REGISTRY_ENABLED" = "true" ]; then
+              echo "Using external registry. Creating registry credentials..."
+              
+              # Get external registry credentials
+              REGISTRY_HOST="{{ .Values | get "externalRegistry.host" "docker.io" }}"
+              REGISTRY_USERNAME="{{ .Values | get "externalRegistry.username" "" }}"
+              REGISTRY_PASSWORD="{{ .Values | get "externalRegistry.password" "" }}"
+              
+              # Create registry credentials for external registry using retry logic
+              echo "Creating registry-credentials secret for external registry..."
+              if ! retry_command "kubectl create secret generic registry-credentials --namespace=\"$NAMESPACE\" --from-literal=username=\"${REGISTRY_USERNAME}\" --from-literal=password=\"${REGISTRY_PASSWORD}\""; then
+                if kubectl get secret registry-credentials -n "$NAMESPACE" &>/dev/null; then
+                  echo -e "${YELLOW}Registry credentials secret already exists. Skipping creation.${NC}"
+                else
+                  echo -e "${RED}Failed to create registry-credentials secret after multiple attempts${NC}"
+                  exit 1
+                fi
+              fi
+              
+              echo -e "${GREEN}Registry credentials created for external registry: $REGISTRY_HOST${NC}"
+              exit 0
             fi
 
             echo "Secret checks/creation complete."
