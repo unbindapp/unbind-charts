@@ -969,13 +969,12 @@ releases:
               
               # Create registry credentials for external registry using retry logic
               echo "Creating registry-credentials secret for external registry..."
-              if ! retry_command "kubectl create secret generic registry-credentials --namespace=\"$NAMESPACE\" --from-literal=username=\"${REGISTRY_USERNAME}\" --from-literal=password=\"${REGISTRY_PASSWORD}\""; then
-                if kubectl get secret registry-credentials -n "$NAMESPACE" &>/dev/null; then
-                  echo -e "${YELLOW}Registry credentials secret already exists. Skipping creation.${NC}"
-                else
-                  echo -e "${RED}Failed to create registry-credentials secret after multiple attempts${NC}"
-                  exit 1
-                fi
+              if ! safe_create_secret "registry-credentials" generic registry-credentials \
+                --namespace="$NAMESPACE" \
+                --from-literal=username="${REGISTRY_USERNAME}" \
+                --from-literal=password="${REGISTRY_PASSWORD}"; then
+                echo "Error: Failed to ensure registry-credentials exists for external registry. Halting hook." >&2
+                exit 1
               fi
               
               echo -e "${GREEN}Registry credentials created for external registry: $REGISTRY_HOST${NC}"
