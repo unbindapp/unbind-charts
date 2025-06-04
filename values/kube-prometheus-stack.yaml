@@ -1,35 +1,125 @@
-# Static values for kube-prometheus-stack chart
+# Optimized kube-prometheus-stack values for your specific queries
 prometheus:
   prometheusSpec:
+    # Longer scrape intervals to reduce load
+    scrapeInterval: 30s
+    evaluationInterval: 60s
+    
+    # Optimized resources
     resources:
       requests:
         cpu: 10m
         memory: 128Mi
       limits:
         cpu: 200m
-        memory: 1Gi
+        memory: 512Mi
+    
+    # Disable un-needed features
+    enableAdminAPI: false
+    enableRemoteWriteReceiver: false
+    walCompression: true
+
+# Disable all default alerting rules
+defaultRules:
+  create: false
+
+# Keep kubelet but optimize it heavily
+kubelet:
+  enabled: true
+  serviceMonitor:
+    # Only scrape cAdvisor metrics (container metrics)
+    kubelet: false  # Disable kubelet metrics
+    probes: false   # Disable probes metrics
+    resource: false # Disable resource metrics
+    cAdvisor: true  # Keep container metrics
+    
+    # Aggressively filter cAdvisor metrics to only what you need
+    cAdvisorMetricRelabelings:
+      # Keep only the metrics you actually use
+      - sourceLabels: [__name__]
+        action: keep
+        regex: 'container_(cpu_usage_seconds_total|memory_working_set_bytes|network_receive_bytes_total|network_transmit_bytes_total)'
+      
+      # Drop metrics for system container
+      - sourceLabels: [container]
+        action: drop
+        regex: 'POD|'
+      
+      # Drop high-cardinality labels you don't use
+      - sourceLabels: [id]
+        action: labeldrop
+        regex: '.*'
+      
+      # Keep only essential labels
+      - action: labelkeep
+        regex: '__name__|job|instance|namespace|pod|container|interface'
 
 kube-state-metrics:
+  # Only collect pod and persistentvolumeclaims metrics
   extraArgs:
-  - --metric-labels-allowlist=pods=[*]
+    - --resources=pods,persistentvolumeclaims
+    - --metric-labels-allowlist=pods=[unbind_team,unbind_project,unbind_environment,unbind_service]
+  
+  prometheus:
+    monitor:
+      # Filter to only essential kube-state-metrics
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          action: keep
+          regex: 'kube_pod_(labels|spec_volumes_persistentvolumeclaims_info)|kubelet_volume_stats_used_bytes'
 
-# Disable non-essential components
-grafana:
-  enabled: false
-alertmanager:
-  enabled: false
-kubeStateMetrics:
-  enabled: true  # Enabled for pod metrics
-nodeExporter:
-  enabled: true  # Enabled for node metrics
+# Optimize node-exporter for your node queries
+prometheus-node-exporter:
+  # Only enable needed collectors
+  extraArgs:
+    - --collector.cpu
+    - --collector.meminfo  
+    - --collector.netdev
+    - --collector.diskstats
+    - --collector.filesystem
+    - --collector.loadavg
+    - --collector.uname
+    # Disable un-needed collectors
+    - --no-collector.wifi
+    - --no-collector.hwmon
+    - --no-collector.powersupplyclass
+    - --no-collector.rapl
+    - --no-collector.thermal_zone
+    - --no-collector.time
+    - --no-collector.timex
+    - --no-collector.arp
+    - --no-collector.conntrack
+    - --no-collector.sockstat
+    - --no-collector.netstat
+    - --no-collector.nfs
+    - --no-collector.nfsd
+    - --no-collector.pressure
+    - --no-collector.processes
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+  
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          action: keep
+          regex: 'node_(cpu_seconds_total|memory_MemTotal_bytes|memory_MemAvailable_bytes|network_receive_bytes_total|network_transmit_bytes_total|disk_read_bytes_total|disk_written_bytes_total|filesystem_size_bytes|filesystem_free_bytes|load1|uname_info)'
+
+# Set limits
 prometheusOperator:
   resources:
     limits:
       cpu: 100m
-      memory: 512Mi
+      memory: 384Mi
     requests:
       cpu: 50m
       memory: 64Mi
+
+# Disable all un-needed components
+grafana:
+  enabled: false
+alertmanager:
+  enabled: false
 kubeEtcd:
   enabled: false
 kubeScheduler:
@@ -43,4 +133,10 @@ kubeApiServer:
 coreDns:
   enabled: false
 kubeDns:
+  enabled: false
+windowsMonitoring:
+  enabled: false
+
+# Disable unnecessary monitoring
+kubernetesServiceMonitors:
   enabled: false
