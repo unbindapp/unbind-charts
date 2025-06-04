@@ -15,8 +15,7 @@ vmsingle:
         cpu: 100m
         memory: 512Mi
     storage:
-      accessModes:
-        - ReadWriteOnce
+      accessModes: [ReadWriteOnce]
       resources:
         requests:
           storage: 3Gi
@@ -25,8 +24,7 @@ vmagent:
   enabled: true
   spec:
     scrapeInterval: 20s
-    externalLabels:
-      cluster: "local"
+    externalLabels: { cluster: "local" }
     resources:
       requests:
         cpu: 10m
@@ -41,15 +39,7 @@ vmagent:
       remoteWrite.flushInterval: "10s"
   podScrape:
     metricRelabelConfigs:
-      - source_labels: [__name__]
-        action: keep
-        regex: >-
-          ^(container_cpu_usage_seconds_total
-          |container_memory_working_set_bytes
-          |container_network_(receive|transmit)_bytes_total
-          |kubelet_volume_stats_used_bytes
-          |kube_pod_spec_volumes_persistentvolumeclaims_info
-          |kube_pod_labels)$
+      # Only strip very high-cardinality helper labels
       - action: labeldrop
         regex: '(container_id|pod_uid|revision|controller_revision_hash)'
 
@@ -94,7 +84,7 @@ prometheus-node-exporter:
       cpu: 150m
       memory: 512Mi
 
-# Disabled components
+# Disabled UI / alerting bits
 grafana:      { enabled: false, forceDeployDatasource: false }
 alertmanager: { enabled: false }
 vmalert:      { enabled: false }
@@ -102,7 +92,7 @@ vmauth:       { enabled: false }
 defaultDashboards:
   enabled: false
 
-# Un-needed control-plane scrapers
+# Control-plane scrapers off
 kubeEtcd:              { enabled: false }
 kubeScheduler:         { enabled: false }
 kubeControllerManager: { enabled: false }
