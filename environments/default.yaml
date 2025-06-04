@@ -63,7 +63,7 @@ overrides:
         # namespace: // Defaults to global.namespace
   loki:
     retentionPeriod: 72h
-    minioStorageSize: 2Gi
+    lokiStorageSize: 2Gi
   
   registry:
     replicaCount: 1

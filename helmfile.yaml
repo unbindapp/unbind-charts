@@ -192,11 +192,16 @@ releases:
             configs:
               - from: "2024-04-01"
                 store: tsdb
-                object_store: s3
+                object_store: filesystem
                 schema: v13
                 index:
                   prefix: loki_index_
                   period: 24h
+          storage_config:
+            tsdb_shipper:
+              shared_store: filesystem
+            filesystem:
+              directory: /var/loki 
           pattern_ingester:
             enabled: true
           limits_config:
@@ -205,6 +210,11 @@ releases:
             allow_structured_metadata: true
             volume_enabled: true
             retention_period: {{ .Values | get "overrides.loki.retentionPeriod" }}
+          compactor:
+            working_directory: /var/loki
+            retention_enabled: true
+            retention_delete_delay: 2h
+            retention_delete_worker_count: 1
           ruler:
             enable_api: true
           tableManager:
@@ -224,26 +234,14 @@ releases:
           enabled: false
 
         minio:
-          enabled: true
-          persistence:
-            enabled: true
-            size: {{ .Values | get "overrides.loki.minioStorageSize" }}
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
+          enabled: false
 
         deploymentMode: SingleBinary
         singleBinary:
           replicas: 1
           persistence:
-            enabled: false
-          extraVolumes:
-            - name: loki-data
-              emptyDir: {}
-          extraVolumeMounts:
-            - name: loki-data
-              mountPath: /var/loki
+            enabled: true
+            size: {{ .Values | get "overrides.loki.lokiStorageSize" }}
 
         backend:
           replicas: 0
