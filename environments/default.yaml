@@ -62,8 +62,8 @@ overrides:
         port: 80
         # namespace: // Defaults to global.namespace
   loki:
-    retentionPeriod: 168h
-    minioStorageSize: 3Gi
+    retentionPeriod: 72h
+    minioStorageSize: 2Gi
   
   registry:
     replicaCount: 1

@@ -30,6 +30,8 @@ prometheusOperator:
     requests:
       cpu: 50m
       memory: 64Mi
+  admissionWebhooks:
+    enabled: false
 kubeEtcd:
   enabled: false
 kubeScheduler:
@@ -37,4 +39,10 @@ kubeScheduler:
 kubeControllerManager:
   enabled: false
 kubeProxy:
+  enabled: false
+kubeApiServer:
+  enabled: false
+coreDns:
+  enabled: false
+kubeDns:
   enabled: false
