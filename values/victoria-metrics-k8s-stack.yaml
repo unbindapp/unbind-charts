@@ -51,7 +51,7 @@ victoria-metrics-operator:
 kube-state-metrics:
   enabled: true
   extraArgs:
-    - --metric-labels-allowlist=pods=[unbind_team,unbind_project,unbind_environment,unbind_service]
+    - --metric-labels-allowlist=pods=[*]
   resources:
     requests:
       cpu: 10m
