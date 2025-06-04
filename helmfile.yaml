@@ -490,6 +490,7 @@ releases:
     values:
       -
         controller:
+          priorityClassName: system-cluster-critical
           kind: DaemonSet
           allowSnippetAnnotations: true
           image:
@@ -690,6 +691,8 @@ releases:
           pullPolicy: IfNotPresent
 
         replicaCount: {{ .Values | get "overrides.dex.replicaCount" 2 }}
+
+        priorityClassName: system-cluster-critical
 
         https:
           enabled: true

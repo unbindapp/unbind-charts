@@ -23,6 +23,7 @@ spec:
         app: {{ .Values.ui.name }}
         {{- include "unbind.ui.selectorLabels" . | nindent 8 }}
     spec:
+      priorityClassName: system-cluster-critical
       serviceAccountName: {{ include "unbind.serviceAccountName" . }}
       containers:
         - name: {{ .Values.ui.name }}

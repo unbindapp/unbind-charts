@@ -30,6 +30,8 @@ spec:
   allowedSourceRanges:
     - 0.0.0.0/0
 
+  podPriorityClassName: system-cluster-critical
+
   databases:
     dex: dex
     unbind: unbind

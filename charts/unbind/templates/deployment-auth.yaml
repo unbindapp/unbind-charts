@@ -23,6 +23,7 @@ spec:
         app: {{ .Values.auth.name }}
         {{- include "unbind.auth.selectorLabels" . | nindent 8 }}
     spec:
+      priorityClassName: system-cluster-critical
       containers:
         - name: {{ .Values.auth.name }}
           image: "{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"

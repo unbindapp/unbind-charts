@@ -14,6 +14,7 @@ spec:
       labels:
         {{- include "kube-oidc-proxy.selectorLabels" . | nindent 8 }}
     spec:
+      priorityClassName: system-cluster-critical
       serviceAccountName: {{ include "kube-oidc-proxy.serviceAccountName" . }}
       containers:
       - name: kube-oidc-proxy
