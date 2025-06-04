@@ -27,15 +27,21 @@ defaultRules:
 kubelet:
   enabled: true
   serviceMonitor:
-    # Only scrape cAdvisor metrics (container metrics)
-    kubelet: false  # Disable kubelet metrics
+    # Enable kubelet metrics for volume stats
+    kubelet: true   # Keep kubelet metrics
     probes: false   # Disable probes metrics
     resource: false # Disable resource metrics
     cAdvisor: true  # Keep container metrics
     
-    # Aggressively filter cAdvisor metrics to only what you need
+    # Filter kubelet metrics to only volume stats
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        action: keep
+        regex: 'kubelet_volume_stats_used_bytes'
+    
+    # Aggressively filter cAdvisor metrics
     cAdvisorMetricRelabelings:
-      # Keep only the metrics you actually use
+      # Keep used metrics
       - sourceLabels: [__name__]
         action: keep
         regex: 'container_(cpu_usage_seconds_total|memory_working_set_bytes|network_receive_bytes_total|network_transmit_bytes_total)'
@@ -45,12 +51,12 @@ kubelet:
         action: drop
         regex: 'POD|'
       
-      # Drop high-cardinality labels you don't use
+      # Drop high-cardinality labels
       - sourceLabels: [id]
         action: labeldrop
         regex: '.*'
       
-      # Keep only essential labels
+      # Keep essential labels
       - action: labelkeep
         regex: '__name__|job|instance|namespace|pod|container|interface'
 
@@ -66,7 +72,7 @@ kube-state-metrics:
       metricRelabelings:
         - sourceLabels: [__name__]
           action: keep
-          regex: 'kube_pod_(labels|spec_volumes_persistentvolumeclaims_info)|kubelet_volume_stats_used_bytes'
+          regex: 'kube_pod_(labels|spec_volumes_persistentvolumeclaims_info)'
 
 # Optimize node-exporter for your node queries
 prometheus-node-exporter:
