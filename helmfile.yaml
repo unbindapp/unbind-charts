@@ -219,6 +219,9 @@ releases:
             retention_enabled: true
             retention_delete_delay: 2h
             retention_delete_worker_count: 1
+            delete_request_store:
+              type: filesystem
+              location: /var/loki/delete-store
           ruler:
             enable_api: true
           tableManager:
