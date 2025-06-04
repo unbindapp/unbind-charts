@@ -4,18 +4,15 @@ vmsingle:
   spec:
     replicaCount: 1
     retentionPeriod: "7d"
-    extraArgs:
-      memory.allowedPercent: "50"
-      search.maxSamplesPerQuery: "50000"
-    resources:
+    resources: 
       requests:
         cpu: 10m
-        memory: 64Mi
+        memory: 128Mi
       limits:
-        cpu: 100m
-        memory: 512Mi
+        cpu: 200m
+        memory: 1Gi
     storage:
-      accessModes: [ReadWriteOnce]
+      accessModes: ["ReadWriteOnce"]
       resources:
         requests:
           storage: 3Gi
@@ -27,45 +24,43 @@ vmagent:
     externalLabels: { cluster: "local" }
     resources:
       requests:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 20m
+        memory: 64Mi
       limits:
-        cpu: 100m
-        memory: 512Mi
+        cpu: 150m
+        memory: 256Mi
     extraArgs:
       promscrape.streamParse: "true"
-      promscrape.dropOriginalLabels: "true"
-      promscrape.seriesLimitPerTarget: "5000"
-      remoteWrite.flushInterval: "10s"
-  podScrape:
+      promscrape.dropOriginalLabels: "true"  # shrink label set in RAM
+  podScrape:                
     metricRelabelConfigs:
-      # Only strip very high-cardinality helper labels
       - action: labeldrop
-        regex: '(container_id|pod_uid|revision|controller_revision_hash)'
+        regex: '(container_id|pod_uid)'
 
 victoria-metrics-operator:
   operator:
     resources:
       requests:
-        cpu: 30m
-        memory: 40Mi
+        cpu: 50m
+        memory: 64Mi
       limits:
-        cpu: 200m
+        cpu: 100m
         memory: 512Mi
 
-# Exporters
+# Enable metrics exporters
 kube-state-metrics:
   enabled: true
   extraArgs:
-    - --resources=pods,services,persistentvolumeclaims
     - --metric-labels-allowlist=pods=[label_unbind_team,label_unbind_project,label_unbind_environment,label_unbind_service]
   resources:
     requests:
-      cpu: 20m
-      memory: 96Mi
+      cpu: 10m
+      memory: 64Mi
     limits:
       cpu: 200m
       memory: 512Mi
+  vmScrape:
+    enabled: true
 
 prometheus-node-exporter:
   enabled: true
@@ -78,21 +73,27 @@ prometheus-node-exporter:
     - --collector.loadavg
   resources:
     requests:
-      cpu: 5m
-      memory: 16Mi
+      cpu: 10m
+      memory: 32Mi
     limits:
-      cpu: 150m
+      cpu: 200m
       memory: 512Mi
 
-# Disabled UI / alerting bits
-grafana:      { enabled: false, forceDeployDatasource: false }
-alertmanager: { enabled: false }
-vmalert:      { enabled: false }
-vmauth:       { enabled: false }
-defaultDashboards:
+# Disable non-essential components
+grafana:
   enabled: false
+  forceDeployDatasource: false    # don’t leave orphaned ConfigMaps
 
-# Control-plane scrapers off
+alertmanager:
+  enabled: false                  # matches your previous toggle
+vmalert:
+  enabled: false                  # alert-rule engine; turn off if AM is off
+vmauth:
+  enabled: false
+defaultDashboards:
+  enabled: false                  # nothing consumes them without Grafana
+
+# Turn off un-needed scrapers
 kubeEtcd:              { enabled: false }
 kubeScheduler:         { enabled: false }
 kubeControllerManager: { enabled: false }
@@ -101,6 +102,6 @@ kubeApiServer:         { enabled: false }
 coreDns:               { enabled: false }
 kubeDns:               { enabled: false }
 
-# Default recording rules
+# Enable default rules
 defaultRules:
   create: true
