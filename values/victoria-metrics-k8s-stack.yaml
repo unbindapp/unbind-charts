@@ -47,6 +47,16 @@ victoria-metrics-operator:
         cpu: 100m
         memory: 512Mi
 
+# -- Component scraping the kubelets
+kubelet:
+  enabled: true
+  vmScrapes:
+    probes:
+      enabled: false
+  vmScrape:
+    spec:
+      scrapeTimeout: "15s"
+
 # Enable metrics exporters
 kube-state-metrics:
   enabled: true
