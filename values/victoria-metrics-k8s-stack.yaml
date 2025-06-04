@@ -41,8 +41,15 @@ vmagent:
       remoteWrite.flushInterval: "10s"
   podScrape:
     metricRelabelConfigs:
-      - action: keep
-        regex: '^(container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_network_(receive|transmit)_bytes_total|kubelet_volume_stats_used_bytes)$'
+      - source_labels: [__name__]
+        action: keep
+        regex: >-
+          ^(container_cpu_usage_seconds_total
+          |container_memory_working_set_bytes
+          |container_network_(receive|transmit)_bytes_total
+          |kubelet_volume_stats_used_bytes
+          |kube_pod_spec_volumes_persistentvolumeclaims_info
+          |kube_pod_labels)$
       - action: labeldrop
         regex: '(container_id|pod_uid|revision|controller_revision_hash)'
 
@@ -88,16 +95,10 @@ prometheus-node-exporter:
       memory: 512Mi
 
 # Disabled components
-grafana:
-  enabled: false
-  forceDeployDatasource: false
-
-alertmanager:
-  enabled: false
-vmalert:
-  enabled: false
-vmauth:
-  enabled: false
+grafana:      { enabled: false, forceDeployDatasource: false }
+alertmanager: { enabled: false }
+vmalert:      { enabled: false }
+vmauth:       { enabled: false }
 defaultDashboards:
   enabled: false
 
