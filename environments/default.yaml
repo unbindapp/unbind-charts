@@ -4,7 +4,7 @@
 components:
   longhorn:
     enabled: false
-  kubePrometheusStack:
+  victoriaMetricsStack:
     enabled: true
   buildkitd:
     enabled: true
@@ -37,7 +37,7 @@ overrides:
       reclaimPolicy: Retain
     defaultSettings:
       defaultReplicaCount: 1
-  kubePrometheusStack:
+  victoriaMetricsStack:
     # Configurable retention period
     retention: "7d"
     # Configurable storage size
@@ -195,7 +195,7 @@ overrides:
       loki:
         endpoint: http://loki-gateway.unbind-system.svc.cluster.local
       prometheus:
-        endpoint: http://kube-prometheus-stack-prometheus.unbind-system:9090
+        endpoint: http://vmsingle-victoria-metrics-k8s-stack.unbind-system:8429
       resources:
         limits:
           cpu: 250m
