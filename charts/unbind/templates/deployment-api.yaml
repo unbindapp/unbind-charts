@@ -25,6 +25,23 @@ spec:
     spec:
       priorityClassName: system-cluster-critical
       serviceAccountName: {{ include "unbind.serviceAccountName" . }}
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "Waiting for database at $POSTGRES_HOST:$POSTGRES_PORT..."
+              until nc -z $POSTGRES_HOST $POSTGRES_PORT; do
+                echo "Database not ready, waiting..."
+                sleep 2
+              done
+              echo "Database is ready!"
+          env:
+            - name: POSTGRES_HOST
+              value: {{ .Values | get "overrides.unbind.api.database.host" (printf "pg-unbind.%s" .Values.global.namespace) }}
+            - name: POSTGRES_PORT
+              value: {{ .Values | get "overrides.unbind.api.database.port" "5432" | quote }}
       containers:
         - name: {{ .Values.api.name }}
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
