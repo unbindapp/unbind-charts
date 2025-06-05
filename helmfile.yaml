@@ -1024,7 +1024,7 @@ releases:
           resources:
             requests:
               memory: "128Mi"
-              cpu: "20m"
+              cpu: "50m"
             limits:
               cpu: {{ .Values | get "overrides.unbind.ui.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.ui.resources.limits.memory" "1Gi" }}
@@ -1069,7 +1069,7 @@ releases:
           resources:
             requests:
               memory: "10Mi"
-              cpu: "20m"
+              cpu: "50m"
             limits:
               cpu: {{ .Values | get "overrides.unbind.api.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.api.resources.limits.memory" "2Gi" }}
@@ -1161,7 +1161,7 @@ releases:
           resources:
             requests:
               memory: "10Mi"
-              cpu: "20m"
+              cpu: "50m"
             limits:
               cpu: {{ .Values | get "overrides.unbind.auth.resources.limits.cpu" "500m" }}
               memory: {{ .Values | get "overrides.unbind.auth.resources.limits.memory" "2Gi" }}
