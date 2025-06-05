@@ -36,11 +36,10 @@ spec:
                 sleep 2
               done
               echo "Database is ready!"
+          {{- if .Values.auth.env }}
           env:
-            - name: POSTGRES_HOST
-              value: {{ .Values | get "overrides.unbind.auth.database.host" (printf "pg-unbind.%s" .Values.global.namespace) }}
-            - name: POSTGRES_PORT
-              value: {{ .Values | get "overrides.unbind.auth.database.port" "5432" | quote }}
+            {{- toYaml .Values.auth.env | nindent 12 }}
+          {{- end }}
       containers:
         - name: {{ .Values.auth.name }}
           image: "{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
