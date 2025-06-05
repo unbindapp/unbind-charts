@@ -44,7 +44,7 @@ helmDefaults:
   createNamespace: true
 
 hooks:
-  - events: ["presync"]
+  - events: ["prepare"]
     showlogs: true
     command: "/bin/sh"
     args:
