@@ -42,6 +42,26 @@ helmDefaults:
   atomic: false
   timeout: 300
   createNamespace: true
+
+hooks:
+  - events: ["presync"]
+    showlogs: true
+    command: "/bin/sh"
+    args:
+      - "-c"
+      - |
+        echo "Creating custom PriorityClass..."
+        cat <<EOF | kubectl apply -f -
+        apiVersion: scheduling.k8s.io/v1
+        kind: PriorityClass
+        metadata:
+          name: unbind-high-priority
+        value: 10000000
+        globalDefault: false
+        description: "High priority class for critical Unbind system components"
+        EOF
+        echo "PriorityClass 'unbind-high-priority' created successfully"
+
 ---
 releases:
   - name: flux
@@ -490,7 +510,7 @@ releases:
     values:
       -
         controller:
-          priorityClassName: system-cluster-critical
+          priorityClassName: unbind-high-priority
           kind: DaemonSet
           allowSnippetAnnotations: true
           image:
@@ -692,7 +712,7 @@ releases:
 
         replicaCount: {{ .Values | get "overrides.dex.replicaCount" 2 }}
 
-        priorityClassName: system-cluster-critical
+        priorityClassName: unbind-high-priority
 
         https:
           enabled: true

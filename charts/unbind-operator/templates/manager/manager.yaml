@@ -25,7 +25,7 @@ spec:
         {{- end }}
         {{- end }}
     spec:
-      priorityClassName: system-cluster-critical
+      priorityClassName: unbind-high-priority
       containers:
         - name: manager
           args:
