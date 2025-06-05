@@ -22,6 +22,18 @@ spec:
     version: "17"
     parameters:
       wal_level: replica
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      wal_buffers: "4MB"
+      max_worker_processes: "4"
+      max_parallel_workers_per_gather: "0"
+      max_parallel_workers: "0"
+      autovacuum_max_workers: "2"
+      autovacuum_naptime: "30s"
+      max_wal_size: "256MB"
+      min_wal_size: "64MB"
   numberOfInstances: {{ .Values.replicaCount }}
   volume:
     size: {{ .Values.storage }}
@@ -46,3 +58,6 @@ spec:
     requests:
       memory: "128Mi" 
       cpu: "50m"  
+    limits:
+      cpu: {{ .Values.resources.limits.cpu  }}
+      memory: {{ .Values.resources.limits.memory  }}
