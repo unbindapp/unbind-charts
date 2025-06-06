@@ -25,7 +25,7 @@ values:
  - namespace: unbind-system
  - tlsSecretName: unbind-domain-tls
  - registryTlsSecretName: unbind-registry-domain-tls
- - unbindVersion: v0.0.19
+ - unbindVersion: v0.0.20
  - externalRegistry:
      enabled: false
      host: docker.io
