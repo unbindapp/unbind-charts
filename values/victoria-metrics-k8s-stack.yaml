@@ -42,7 +42,7 @@ victoria-metrics-operator:
     enabled: false
   operator:
     operator:
-      disable_prometheus_converter: false
+      disable_prometheus_converter: true
     resources:
       requests:
         cpu: 50m
