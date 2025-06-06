@@ -38,7 +38,11 @@ vmagent:
         regex: '(container_id|pod_uid)'
 
 victoria-metrics-operator:
+  admissionWebhooks:
+    enabled: false
   operator:
+    operator:
+      disable_prometheus_converter: false
     resources:
       requests:
         cpu: 50m
