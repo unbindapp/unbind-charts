@@ -104,11 +104,13 @@ ui:
     enabled: true
     path: "/health"
     initialDelaySeconds: 15
+    failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
     path: "/health"
     initialDelaySeconds: 10
+    failureThreshold:  20
     periodSeconds: 5
 
 # API Configuration
@@ -216,11 +218,13 @@ api:
     enabled: true
     path: "/health"
     initialDelaySeconds: 15
+    failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 0
+    initialDelaySeconds: 10
+    failureThreshold:  20
     periodSeconds: 3
 
 # Auth Configuration
@@ -299,9 +303,11 @@ auth:
     enabled: true
     path: "/health"
     initialDelaySeconds: 15
+    failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 0
-    periodSeconds: 3
+    initialDelaySeconds: 10
+    failureThreshold:  20
+    periodSeconds: 5
