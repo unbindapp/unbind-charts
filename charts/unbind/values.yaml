@@ -108,8 +108,8 @@ ui:
   readinessProbe:
     enabled: true
     path: "/health"
-    initialDelaySeconds: 0
-    periodSeconds: 3
+    initialDelaySeconds: 10
+    periodSeconds: 5
 
 # API Configuration
 api:
