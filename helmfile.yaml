@@ -67,7 +67,7 @@ releases:
   - name: flux
     namespace: {{ .Values.namespace }}
     chart: fluxcd-community/flux2
-    version: 2.15.0
+    version: 2.16.0
     values:
       -
         policies:
@@ -117,7 +117,7 @@ releases:
   - name: alloy
     namespace: {{ .Values.namespace }}
     chart: grafana/alloy
-    version: 1.0.3
+    version: 1.1.1
     values:
       -
         alloy:
@@ -380,7 +380,7 @@ releases:
   - name: redis
     namespace: {{ .Values.namespace }}
     chart: bitnami/redis
-    version: 21.1.8
+    version: 21.2.1
     values:
       - architecture: standalone
         auth:
@@ -507,18 +507,13 @@ releases:
   - name: ingress-nginx
     namespace: {{ .Values.namespace }}
     chart: ingress-nginx/ingress-nginx
-    version: 4.12.2
+    version: 4.12.3
     values:
       -
         controller:
           priorityClassName: unbind-high-priority
           kind: DaemonSet
           allowSnippetAnnotations: true
-          image:
-            registry: registry.k8s.io
-            image: ingress-nginx/controller
-            tag: "v1.12.2"
-            digest: sha256:d2fbc4ec70d8aa2050dd91a91506e998765e86c96f32cffb56c503c9c34eed5b
           ingressClassResource:
             name: nginx
             default: true
