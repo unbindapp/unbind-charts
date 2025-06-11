@@ -514,6 +514,11 @@ releases:
           priorityClassName: unbind-high-priority
           kind: Deployment
           allowSnippetAnnotations: true
+          image:
+            # ! Overriding this because, have had issues with 403 from the default registry (they may block some hetzner IPs)
+            registry: ghcr.io
+            image: unbindapp/ingress-nginx/controller
+            tag: "v1.12.3"
           replicaCount: 2
           ingressClassResource:
             name: nginx
