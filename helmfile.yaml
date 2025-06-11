@@ -512,8 +512,9 @@ releases:
       -
         controller:
           priorityClassName: unbind-high-priority
-          kind: DaemonSet
+          kind: Deployment
           allowSnippetAnnotations: true
+          replicaCount: 2
           ingressClassResource:
             name: nginx
             default: true
@@ -530,8 +531,8 @@ releases:
             annotations-risk-level: "Critical"
           resources:
             requests:
-              cpu: 10m
-              memory: 10Mi
+              cpu: 50m
+              memory: 50Mi
         rbac:
           create: true
           scope: false
