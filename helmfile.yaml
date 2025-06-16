@@ -99,7 +99,7 @@ releases:
   - name: victoria-metrics-k8s-stack
     namespace: {{ .Values.namespace }}
     chart: vm/victoria-metrics-k8s-stack
-    version: 0.50.1
+    version: 0.52.0
     values:
       - values/victoria-metrics-k8s-stack.yaml
       - vmsingle:
@@ -550,7 +550,7 @@ releases:
   - name: cert-manager
     namespace: {{ .Values.namespace }}
     chart: jetstack/cert-manager
-    version: 1.17.2
+    version: 1.18.0
     hooks:
       - events: ["presync"]
         showlogs: true
@@ -559,7 +559,7 @@ releases:
           - "-c"
           - |
             echo "Installing cert-manager CRDs..."
-            kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.crds.yaml
+            kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.0/cert-manager.crds.yaml
             echo "Cert-manager CRDs installed"
       - events: ["postsync"]
         showlogs: true
