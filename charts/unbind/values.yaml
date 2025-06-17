@@ -97,18 +97,15 @@ ui:
       value: "https://unbind.example.com"
   startupProbe:
     enabled: true
-    path: "/health"
     failureThreshold: 30
     periodSeconds: 10
   livenessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 15
     failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 10
     failureThreshold:  20
     periodSeconds: 5
@@ -211,18 +208,15 @@ api:
       value: http://kube-prometheus-stack-prometheus.unbind-system:9090
   startupProbe:
     enabled: true
-    path: "/health"
     failureThreshold: 30
     periodSeconds: 10
   livenessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 15
     failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 10
     failureThreshold:  20
     periodSeconds: 3
@@ -296,18 +290,15 @@ auth:
       value: redis-headless.unbind-system:6379
   startupProbe:
     enabled: true
-    path: "/health"
     failureThreshold: 30
     periodSeconds: 10
   livenessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 15
     failureThreshold:  10
     periodSeconds: 10
   readinessProbe:
     enabled: true
-    path: "/health"
     initialDelaySeconds: 10
     failureThreshold:  20
     periodSeconds: 5

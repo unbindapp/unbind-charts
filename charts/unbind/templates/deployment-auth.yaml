@@ -58,7 +58,7 @@ spec:
           {{- if .Values.auth.startupProbe.enabled }}
           startupProbe:
             httpGet:
-              path: {{ .Values.auth.startupProbe.path }}
+              path: /health
               port: {{ .Values.auth.containerPort }}
             failureThreshold: {{ .Values.auth.startupProbe.failureThreshold }}
             periodSeconds: {{ .Values.auth.startupProbe.periodSeconds }}
@@ -66,7 +66,7 @@ spec:
           {{- if .Values.auth.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
-              path: {{ .Values.auth.livenessProbe.path }}
+              path: /health
               port: {{ .Values.auth.containerPort }}
             initialDelaySeconds: {{ .Values.auth.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.auth.livenessProbe.periodSeconds }}
@@ -74,7 +74,7 @@ spec:
           {{- if .Values.auth.readinessProbe.enabled }}
           readinessProbe:
             httpGet:
-              path: {{ .Values.auth.readinessProbe.path }}
+              path: /health
               port: {{ .Values.auth.containerPort }}
             initialDelaySeconds: {{ .Values.auth.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.auth.readinessProbe.periodSeconds }}
