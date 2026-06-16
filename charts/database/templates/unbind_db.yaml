@@ -45,12 +45,9 @@ spec:
   podPriorityClassName: unbind-high-priority
 
   databases:
-    dex: dex
     unbind: unbind
 
   users:
-    dex:
-      - LOGIN
     unbind:
       - SUPERUSER
 

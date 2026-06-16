@@ -20,8 +20,6 @@ components:
     enabled: true
   registry:
     enabled: true
-  dex:
-    enabled: true
   ingressNginx:
     enabled: true
   certManager:
@@ -77,49 +75,6 @@ overrides:
   certManager:
     replicaCount: 2
 
-  dex:
-    version: "v2.42.0"
-    replicaCount: 2
-    # No need to specify issuer as it will be auto-generated from baseDomain
-    
-    # PostgreSQL configuration
-    postgres:
-      # host: "pg-unbind.unbind-system"
-      port: 5432
-      database: "dex"
-      user: "dex"
-      # The secret name that contains the PostgreSQL password
-      secretName: "dex.pg-unbind.credentials.postgresql.acid.zalan.do"
-      ssl:
-        mode: "disable"
-    
-    # OAuth2 settings
-    oauth2:
-      skipApprovalScreen: true
-      alwaysIssueOfflineToken: true
-      responseTypes:
-        - code
-    
-    # Token expiry settings
-    expiry:
-      idTokens: "1h"
-      accessTokens: "1h"
-      refreshTokens:
-        validIfNotUsedFor: "336h"
-        disableRotation: true
-    
-    # Ingress settings - the host is now derived from baseDomain
-    ingress:
-      enabled: true
-      className: "nginx"
-  
-    
-    # Resource settings
-    resources:
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
-
   kubeOidcProxy:
     replicaCount: 1
     image:
@@ -130,7 +85,6 @@ overrides:
       clientId: unbind-api
       usernameClaim: email
       groupsClaim: groups
-      tlsSecretName: dex-tls
     service:
       type: ClusterIP
       port: 443
@@ -154,11 +108,6 @@ overrides:
       repository: ghcr.io/unbindapp/unbind-ui
       pullPolicy: Always
       replicaCount: 1
-      # Additional settings for UI
-      dex:
-        clientId: unbind-api
-        secretName: dex-client-secrets
-        secretKey: unbind-api-secret
 
     # API Configuration
     api:
@@ -172,11 +121,6 @@ overrides:
         name: unbind
         user: unbind
         secretName: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
-      # Dex auth configuration for API
-      dex:
-        clientId: unbind-api
-        secretName: dex-client-secrets
-        secretKey: unbind-api-secret
       # Redis Redis configuration
       redis:
         url: redis-headless.unbind-system:6379
@@ -201,26 +145,3 @@ overrides:
           cpu: 250m
           memory: 512Mi
 
-    # Auth Service Configuration
-    auth:
-      repository: ghcr.io/unbindapp/unbind-api
-      pullPolicy: Always
-      replicaCount: 1
-      # Database configuration for Auth
-      database:
-        # host: pg-unbind
-        port: 5432
-        user: unbind
-        secretName: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
-      # Dex auth configuration for Auth service
-      dex:
-        clientId: unbind-api
-        secretName: dex-client-secrets
-        secretKey: unbind-api-secret
-      # Redis Redis configuration
-      redis:
-        url: redis-headless.unbind-system:6379
-      resources:
-        limits:
-          cpu: 250m
-          memory: 512Mi

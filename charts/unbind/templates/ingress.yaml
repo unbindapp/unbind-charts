@@ -46,12 +46,12 @@ spec:
     secretName: {{ .Values.ingress.tls.secretName }}
 {{- end }}
 ---
-{{- if and .Values.auth.enabled .Values.auth.ingress.enabled }}
-# Auth Ingress
+{{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+# OIDC discovery + JWKS, served by the API at the issuer path (/api/oauth2)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Values.auth.name }}-ingress
+  name: {{ .Values.api.name }}-oauth2-ingress
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "unbind.labels" . | nindent 4 }}
@@ -61,14 +61,11 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "90"  
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "90"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "90"
     nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"
     nginx.ingress.kubernetes.io/upstream-keepalive-timeout: "60"
-    nginx.ingress.kubernetes.io/upstream-keepalive-requests: "100"    
-    {{- with .Values.auth.ingress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
+    nginx.ingress.kubernetes.io/upstream-keepalive-requests: "100"
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
@@ -79,9 +76,9 @@ spec:
         pathType: ImplementationSpecific
         backend:
           service:
-            name: {{ .Values.auth.name }}
+            name: {{ .Values.api.name }}
             port:
-              number: {{ .Values.auth.service.port }}
+              number: {{ .Values.api.service.port }}
   tls:
   - hosts:
     - {{ .Values.ingress.host }}

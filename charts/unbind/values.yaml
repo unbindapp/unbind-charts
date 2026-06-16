@@ -80,15 +80,6 @@ ui:
           key: auth-secret
     - name: AUTH_URL
       value: "https://unbind.example.com/api-internal/auth"
-    - name: DEX_CLIENT_ID
-      value: "unbind-api"
-    - name: DEX_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: dex-client-secrets
-          key: unbind-api-secret
-    - name: DEX_ISSUER
-      value: "https://dex.example.com"
     - name: UNBIND_API_EXTERNAL_URL
       value: "https://unbind.example.com/api"
     - name: UNBIND_API_INTERNAL_URL
@@ -171,17 +162,6 @@ api:
       value: "unbind"
     - name: REDIS_URL
       value: redis-headless.unbind-system:6379
-    - name: DEX_ISSUER_URL
-      value: "https://dex.example.com"
-    - name: DEX_ISSUER_URL_EXTERNAL
-      value: "https://dex.example.com"
-    - name: DEX_CLIENT_ID
-      value: "unbind-api"
-    - name: DEX_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: dex-client-secrets
-          key: unbind-api-secret
     - name: KUBE_PROXY_URL
       value: "https://kube-oidc-proxy.unbind-system.svc.cluster.local:443"
     - name: BUILD_IMAGER
@@ -220,85 +200,3 @@ api:
     initialDelaySeconds: 10
     failureThreshold:  20
     periodSeconds: 3
-
-# Auth Configuration
-auth:
-  enabled: true
-  name: unbind-auth
-  image:
-    repository: "unbindapp/unbind-auth"
-    tag: "latest"
-    pullPolicy: "Always"
-  replicaCount: 2
-  resources:
-    requests:
-      cpu: "500m"
-      memory: "512Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
-  containerPort: 8090
-  service:
-    type: ClusterIP
-    port: 8090
-  ingress:
-    enabled: true  # Enable this for separate ingress
-    annotations:
-      nginx.ingress.kubernetes.io/rewrite-target: /$2
-      nginx.ingress.kubernetes.io/use-regex: "true"
-      nginx.ingress.kubernetes.io/affinity: cookie
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  command: ["/app/oauth2server"]
-  env:
-    - name: EXTERNAL_UI_URL
-      value: "https://unbind.example.com"
-    - name: SYSTEM_NAMESPACE
-      value: "unbind-system"
-    - name: EXTERNAL_OAUTH2_URL
-      value: "https://unbind.example.com/api/oauth2"
-    - name: POSTGRES_HOST
-      value: "pg-unbind"
-    - name: POSTGRES_PORT
-      value: "5432"
-    - name: POSTGRES_USER
-      valueFrom:
-        secretKeyRef:
-          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
-          key: username
-    - name: POSTGRES_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: unbind.pg-unbind.credentials.postgresql.acid.zalan.do
-          key: password
-    - name: DEX_ISSUER_URL
-      value: "https://dex.example.com"
-    - name: DEX_ISSUER_URL_EXTERNAL
-      value: "https://dex.example.com"
-    - name: DEX_CLIENT_ID
-      value: "unbind-api"
-    - name: DEX_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: dex-client-secrets
-          key: unbind-api-secret
-    - name: DEX_CONNECTOR_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: dex-client-secrets
-          key: connector-oidc-secret
-    - name: REDIS_URL
-      value: redis-headless.unbind-system:6379
-  startupProbe:
-    enabled: true
-    failureThreshold: 30
-    periodSeconds: 10
-  livenessProbe:
-    enabled: true
-    initialDelaySeconds: 15
-    failureThreshold:  10
-    periodSeconds: 10
-  readinessProbe:
-    enabled: true
-    initialDelaySeconds: 10
-    failureThreshold:  20
-    periodSeconds: 5

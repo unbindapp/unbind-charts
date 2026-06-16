@@ -5,8 +5,6 @@ repositories:
     url: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
   - name: grafana
     url: https://grafana.github.io/helm-charts
-  - name: dex
-    url: https://charts.dexidp.io
   - name: ingress-nginx
     url: https://kubernetes.github.io/ingress-nginx
   - name: jetstack
@@ -596,257 +594,41 @@ releases:
       component: cert-manager
     installed: {{ .Values | get "components.certManager.enabled" true }}
 
-  - name: dex
+  - name: kube-oidc-proxy
     namespace: {{ .Values.namespace }}
-    chart: dex/dex
-    version: 0.23.0
+    chart: ./charts/kube-oidc-proxy
     needs:
-      - database
-      - cert-manager
+      - unbind-app
     hooks:
       - events: ["presync"]
         showlogs: true
         command: "/bin/sh"
         args:
-          - "-c"   
+          - "-c"
           - |
             set -eu
-
             NAMESPACE="{{ .Values.namespace }}"
-            UNBIND_DOMAIN="{{ .Values.unbindDomain }}"
-            GREEN='\033[0;32m'
-            NC='\033[0m'
-            YELLOW='\033[0;33m'
 
-            safe_create_secret() {
-              local name="$1"
-              shift
-              echo "Ensuring $name secret exists..."
-              if kubectl create "$@" >/dev/null 2>&1; then
-                echo -e "${GREEN}✓ Created $name secret${NC}"
-                return 0
-              else
-                if kubectl get secret "$name" -n "$NAMESPACE" &>/dev/null; then
-                  echo -e "${YELLOW}$name secret already exists. Skipping creation.${NC}"
-                  return 0
-                else
-                  echo "Error: Failed to create $name secret and it does not exist. Check permissions or kubectl logs." >&2
-                  return 1
-                fi
-              fi
-            }
-
-            echo "Processing dex-client-secrets..."
-            CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-            CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-
-            safe_create_secret "dex-client-secrets" \
-              secret generic dex-client-secrets \
-              --namespace="$NAMESPACE" \
-              --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
-              --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"
-
-            echo "Processing dex-tls secret..."
-            if ! kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
-              echo "Generating TLS certificates for Dex (internal use)..."
-
-              CERT_DIR=$(mktemp -d)
-              trap 'rm -rf -- "$CERT_DIR"' EXIT
-
-              DEX_SVC_NAME="dex"
-              DEX_SVC_FQDN="${DEX_SVC_NAME}.${NAMESPACE}.svc.cluster.local"
-              DEX_EXTERNAL_HOST="{{ .Values.unbindDomain }}"
-
-              echo "Generating Root CA..."
-              openssl genrsa -out "$CERT_DIR/ca.key" 4096
-              openssl req -x509 -new -nodes -key "$CERT_DIR/ca.key" -sha256 -days 6650 \
-                -out "$CERT_DIR/ca.crt" -subj "/CN=Unbind Dex Internal CA"
-
-              echo "Generating certificate for Dex service..."
-              openssl genrsa -out "$CERT_DIR/dex.key" 2048
-              openssl req -new -key "$CERT_DIR/dex.key" -out "$CERT_DIR/dex.csr" \
-                -subj "/CN=$DEX_SVC_FQDN"
-
-              printf '%s\n' \
-                'authorityKeyIdentifier=keyid,issuer' \
-                'basicConstraints=CA:FALSE' \
-                'keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment' \
-                'subjectAltName = @alt_names' \
-                '[alt_names]' \
-                "DNS.1 = $DEX_SVC_NAME" \
-                "DNS.2 = $DEX_SVC_FQDN" \
-                "DNS.3 = $DEX_EXTERNAL_HOST" \
-                > "$CERT_DIR/dex.ext"
-
-              echo "Signing Dex certificate..."
-              openssl x509 -req -in "$CERT_DIR/dex.csr" -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
-                -CAcreateserial -out "$CERT_DIR/dex.crt" -days 6650 -sha256 \
-                -extfile "$CERT_DIR/dex.ext"
-              echo -e "${GREEN}✓ Certificates generated${NC}"
-
-              safe_create_secret "dex-tls" \
-                secret tls dex-tls \
-                --namespace="$NAMESPACE" \
-                --cert="$CERT_DIR/dex.crt" \
-                --key="$CERT_DIR/dex.key"
-
-              if kubectl get secret dex-tls -n "$NAMESPACE" &> /dev/null; then
-                CA_CRT_BASE64=$(base64 -w 0 < "$CERT_DIR/ca.crt")
-
-                echo "Patching dex-tls secret to include ca.crt..."
-                kubectl patch secret dex-tls -n "$NAMESPACE" --type='json' \
-                  -p="[{\"op\": \"add\", \"path\": \"/data/ca.crt\", \"value\": \"$CA_CRT_BASE64\"}]" || \
-                  echo -e "${YELLOW}Warning: Failed to patch dex-tls secret with CA certificate.${NC}"
-
-                echo -e "${GREEN}✓ TLS certificates for Dex processed${NC}"
-              fi
-            else
-              echo -e "${YELLOW}Internal TLS secret dex-tls already exists.${NC}"
+            # Self-signed serving cert for the proxy's :443. The API connects with
+            # InsecureSkipVerify, so this only needs to exist, not be publicly trusted.
+            if kubectl get secret kube-oidc-proxy-tls -n "$NAMESPACE" >/dev/null 2>&1; then
+              echo "kube-oidc-proxy-tls already exists. Skipping."
+              exit 0
             fi
 
-            echo "Dex secrets/certs processing complete."
-    values:
-      -
-        image:
-          repository: unbindapp/dex
-          tag: master-14777142866
-          pullPolicy: IfNotPresent
+            CERT_DIR=$(mktemp -d)
+            trap 'rm -rf -- "$CERT_DIR"' EXIT
+            SVC_FQDN="kube-oidc-proxy.${NAMESPACE}.svc.cluster.local"
 
-        replicaCount: {{ .Values | get "overrides.dex.replicaCount" 2 }}
+            openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -sha256 \
+              -keyout "$CERT_DIR/tls.key" -out "$CERT_DIR/tls.crt" \
+              -subj "/CN=${SVC_FQDN}" \
+              -addext "subjectAltName=DNS:kube-oidc-proxy,DNS:${SVC_FQDN}"
 
-        priorityClassName: unbind-high-priority
-
-        https:
-          enabled: true
-
-        configSecret:
-          create: true
-
-        config:
-          issuer: {{ .Values | get "overrides.dex.issuer" (printf "https://%s/api/dex" .Values.unbindDomain) }}
-          storage:
-            type: postgres
-            config:
-              host: {{ .Values | get "overrides.dex.postgres.host" (printf "pg-unbind.%s" .Values.namespace) }}
-              port: {{ .Values | get "overrides.dex.postgres.port" 5432 }}
-              database: {{ .Values | get "overrides.dex.postgres.database" "dex" }}
-              user: {{ printf "$%s" "POSTGRES_USER" }}
-              password: {{ printf "$%s" "POSTGRES_PASSWORD" }}
-              ssl:
-                mode: {{ .Values | get "overrides.dex.postgres.ssl.mode" "disable" }}
-          web:
-            https: 0.0.0.0:5556
-            tlsCert: /etc/dex/tls/tls.crt
-            tlsKey: /etc/dex/tls/tls.key
-          issuers: {{ .Values | get "overrides.dex.issuers" (list (printf "https://%s/api/dex" .Values.unbindDomain) (printf "https://dex.%s.svc.cluster.local:5556" .Values.namespace)) | toYaml | nindent 12 }}
-          oauth2:
-            skipApprovalScreen: {{ .Values | get "overrides.dex.oauth2.skipApprovalScreen" true }}
-            responseTypes: {{ .Values | get "overrides.dex.oauth2.responseTypes" (list "code") | toYaml | nindent 14 }}
-            alwaysIssueOfflineToken: {{ .Values | get "overrides.dex.oauth2.alwaysIssueOfflineToken" true }}
-          expiry:
-            idTokens: {{ .Values | get "overrides.dex.expiry.idTokens" "1h" }}
-            accessTokens: {{ .Values | get "overrides.dex.expiry.accessTokens" "1h" }}
-            refreshTokens:
-              validIfNotUsedFor: {{ .Values | get "overrides.dex.expiry.refreshTokens.validIfNotUsedFor" "336h" }}
-              disableRotation: {{ .Values | get "overrides.dex.expiry.refreshTokens.disableRotation" true }}
-          connectors:
-            {{ .Values | get "overrides.dex.connectors" (list (dict
-              "type" "oidc"
-              "id" "unbind-oidc"
-              "name" "Unbind Built-in OIDC Provider"
-              "config" (dict
-                "issuer" (printf "https://%s/api/oauth2" .Values.unbindDomain)
-                "clientID" "dex-client"
-                "clientSecret" (printf "$%s" "CONNECTOR_SECRET")
-                "redirectURI" (printf "https://%s/api/dex/callback" .Values.unbindDomain)
-                "scopes" (list "openid" "profile" "email" "offline_access" "groups")
-                "insecureEnableGroups" true
-                "discoveryURL" (printf "https://%s/api/oauth2/.well-known/openid-configuration" .Values.unbindDomain)
-                "userIDKey" "jti"
-                "claimMapping" (dict "email" "email" "name" "name" "groups" "groups")
-              )
-            )) | toYaml | nindent 12 }}
-          staticClients:
-            - id: unbind-api
-              secretEnv: CLIENT_SECRET
-              name: Unbind API
-              redirectURIs:
-                - {{ printf "https://%s/api-internal/auth/callback/dex" .Values.unbindDomain }}
-                - {{ printf "https://%s/api/auth/callback" .Values.unbindDomain }}
-              responseTypes: {{ .Values | get "overrides.dex.staticClients.unbindApi.responseTypes" (list "code") | toYaml | nindent 16 }}
-
-        envVars:
-          - name: POSTGRES_USER
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values | get "overrides.dex.postgres.secretName" "dex.pg-unbind.credentials.postgresql.acid.zalan.do" }}
-                key: username
-          - name: POSTGRES_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values | get "overrides.dex.postgres.secretName" "dex.pg-unbind.credentials.postgresql.acid.zalan.do" }}
-                key: password
-          - name: CLIENT_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: dex-client-secrets
-                key: unbind-api-secret
-          - name: CONNECTOR_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: dex-client-secrets
-                key: connector-oidc-secret
-
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1000
-
-        resources:
-          requests:
-            memory: "10Mi"
-            cpu: "10m"
-          limits:
-            cpu: {{ .Values | get "overrides.dex.resources.limits.cpu" "200m" }}
-            memory: {{ .Values | get "overrides.dex.resources.limits.memory" "256Mi" }}
-
-        ingress:
-          enabled: {{ .Values | get "overrides.dex.ingress.enabled" true }}
-          className: {{ .Values | get "overrides.dex.ingress.className" "nginx" }}
-          annotations:
-            kubernetes.io/tls-acme: "true"
-            nginx.ingress.kubernetes.io/ssl-redirect: "true"
-            {{- with .Values | get "overrides.dex.ingress.annotations" dict }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          hosts:
-            - host: {{ .Values.unbindDomain }}
-              paths:
-                - path: /api/dex
-                  pathType: Prefix
-          tls:
-            - secretName: {{ .Values.tlsSecretName }}
-              hosts:
-                - {{ .Values.unbindDomain }}
-
-        volumes:
-          - name: tls-certs
-            secret:
-              secretName: dex-tls
-
-        volumeMounts:
-          - name: tls-certs
-            mountPath: /etc/dex/tls
-            readOnly: true
-
-    labels:
-      component: dex
-    installed: {{ .Values | get "components.dex.enabled" true }}
-
-  - name: kube-oidc-proxy
-    namespace: {{ .Values.namespace }}
-    chart: ./charts/kube-oidc-proxy
-    needs:
-      - dex
+            kubectl create secret tls kube-oidc-proxy-tls \
+              --namespace="$NAMESPACE" \
+              --cert="$CERT_DIR/tls.crt" \
+              --key="$CERT_DIR/tls.key"
     values:
       -
         replicaCount: {{ .Values | get "overrides.kubeOidcProxy.replicaCount" 2 }}
@@ -856,10 +638,11 @@ releases:
           pullPolicy: {{ .Values | get "overrides.kubeOidcProxy.image.pullPolicy" "IfNotPresent" }}
 
         oidc:
-          issuerUrl: {{ .Values | get "overrides.kubeOidcProxy.oidc.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
+          issuerUrl: {{ .Values | get "overrides.kubeOidcProxy.oidc.issuerUrl" (printf "https://%s/api/oauth2" .Values.unbindDomain) }}
           clientId: {{ .Values | get "overrides.kubeOidcProxy.oidc.clientId" "unbind-api" }}
           usernameClaim: {{ .Values | get "overrides.kubeOidcProxy.oidc.usernameClaim" "email" }}
           groupsClaim: {{ .Values | get "overrides.kubeOidcProxy.oidc.groupsClaim" "groups" }}
+          tlsSecretName: {{ .Values | get "overrides.kubeOidcProxy.oidc.tlsSecretName" "kube-oidc-proxy-tls" }}
 
         service:
           type: {{ .Values | get "overrides.kubeOidcProxy.service.type" "ClusterIP" }}
@@ -908,20 +691,6 @@ releases:
       - database
       - cert-manager
     hooks:
-      - events: ["postsync"]   
-        showlogs: true                         
-        command: "/bin/sh"
-        args:
-          - "-c"
-          - |
-            NS="{{ .Values.namespace }}"
-            echo "🔄  Restarting Dex deployments in namespace ${NS} …"
-
-            # 1. Try the modern rollout-restart (preferred, respects deployment strategy)
-            if kubectl -n "${NS}" rollout restart deployment \
-                -l app.kubernetes.io/instance=dex; then
-              echo "✅  Dex restart triggered with 'kubectl rollout restart'"
-            fi
       - events: ["presync"]
         showlogs: true
         command: "/bin/sh"
@@ -962,18 +731,6 @@ releases:
               --namespace="$NAMESPACE" \
               --from-literal=auth-secret="${AUTH_SECRET}"; then
               echo "Error: Failed to ensure unbind-authjs-secrets exists. Halting hook." >&2
-              exit 1
-            fi
-
-            echo "Processing dex-client-secrets..."
-            CLIENT_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-            CONNECTOR_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-
-            if ! safe_create_secret "dex-client-secrets" generic dex-client-secrets \
-              --namespace="$NAMESPACE" \
-              --from-literal=unbind-api-secret="${CLIENT_SECRET}" \
-              --from-literal=connector-oidc-secret="${CONNECTOR_SECRET}"; then
-              echo "Error: Failed to ensure dex-client-secrets exists. Halting hook." >&2
               exit 1
             fi
 
@@ -1043,15 +800,6 @@ releases:
                   key: auth-secret
             - name: AUTH_URL
               value: {{ printf "https://%s/api-internal/auth" .Values.unbindDomain }}
-            - name: DEX_CLIENT_ID
-              value: {{ .Values | get "overrides.unbind.ui.dex.clientId" "unbind-api" }}
-            - name: DEX_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.ui.dex.secretName" "dex-client-secrets" }}
-                  key: {{ .Values | get "overrides.unbind.ui.dex.secretKey" "unbind-api-secret" }}
-            - name: DEX_ISSUER
-              value: {{ printf "https://%s/api/dex" .Values.unbindDomain }}
             - name: UNBIND_API_EXTERNAL_URL
               value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
             - name: UNBIND_API_INTERNAL_URL
@@ -1112,17 +860,6 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.database.name" "unbind" }}
             - name: REDIS_URL
               value: {{ .Values | get "overrides.unbind.api.redis.url" (printf "redis-headless.%s:6379" .Values.namespace) }}
-            - name: DEX_ISSUER_URL
-              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
-            - name: DEX_ISSUER_URL_EXTERNAL
-              value: {{ .Values | get "overrides.unbind.api.dex.issuerUrlExternal" (printf "https://%s/api/dex" .Values.unbindDomain) }}
-            - name: DEX_CLIENT_ID
-              value: {{ .Values | get "overrides.unbind.api.dex.clientId" "unbind-api" }}
-            - name: DEX_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.api.dex.secretName" "dex-client-secrets" }}
-                  key: {{ .Values | get "overrides.unbind.api.dex.secretKey" "unbind-api-secret" }}
             - name: KUBE_PROXY_URL
               value: {{ .Values | get "overrides.unbind.api.kubeProxyUrl" (printf "https://kube-oidc-proxy.%s.svc.cluster.local:443" .Values.namespace) }}
             - name: BUILDER_NAMESPACE
@@ -1150,68 +887,6 @@ releases:
               value: {{ .Values | get "overrides.unbind.api.loki.endpoint" (printf "http://loki-gateway.%s.svc.cluster.local" .Values.namespace) }}
             - name: PROMETHEUS_ENDPOINT
               value: {{ .Values | get "overrides.unbind.api.prometheus.endpoint" (printf "http://vmsingle-victoria-metrics-k8s-stack.%s:8429" .Values.namespace) }}
-
-      - auth:
-          enabled: true
-          name: unbind-auth
-          image:
-            repository: {{ .Values | get "overrides.unbind.auth.repository" "ghcr.io/unbindapp/unbind-api" }}
-            tag: {{ .Values.unbindVersion }}
-            pullPolicy: {{ .Values | get "overrides.unbind.auth.pullPolicy" "Always" }}
-          replicaCount: {{ .Values | get "overrides.unbind.auth.replicaCount" 2 }}
-          resources:
-            requests:
-              memory: "10Mi"
-              cpu: "50m"
-            limits:
-              cpu: {{ .Values | get "overrides.unbind.auth.resources.limits.cpu" "500m" }}
-              memory: {{ .Values | get "overrides.unbind.auth.resources.limits.memory" "2Gi" }}
-          containerPort: 8090
-          service:
-            type: ClusterIP
-            port: 8090
-          ingress:
-            enabled: true
-          command: ["/app/oauth2server"]
-          env:
-            - name: SYSTEM_NAMESPACE
-              value: {{ .Values.namespace }}
-            - name: EXTERNAL_UI_URL
-              value: {{ printf "https://%s" .Values.unbindDomain }}
-            - name: EXTERNAL_OAUTH2_URL
-              value: {{ printf "https://%s/api/oauth2" .Values.unbindDomain }}
-            - name: POSTGRES_HOST
-              value: {{ .Values | get "overrides.unbind.auth.database.host" (printf "pg-unbind.%s" .Values.namespace) }}
-            - name: POSTGRES_PORT
-              value: {{ .Values | get "overrides.unbind.auth.database.port" "5432" | quote }}
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.auth.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
-                  key: username
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.auth.database.secretName" "unbind.pg-unbind.credentials.postgresql.acid.zalan.do" }}
-                  key: password
-            - name: DEX_ISSUER_URL
-              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrl" (printf "https://%s/api/dex" .Values.unbindDomain) }}
-            - name: DEX_ISSUER_URL_EXTERNAL
-              value: {{ .Values | get "overrides.unbind.auth.dex.issuerUrlExternal" (printf "https://%s/api/dex" .Values.unbindDomain) }}
-            - name: DEX_CLIENT_ID
-              value: {{ .Values | get "overrides.unbind.auth.dex.clientId" "dex-client" }}
-            - name: DEX_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
-                  key: {{ .Values | get "overrides.unbind.auth.dex.secretKey" "connector-oidc-secret" }}
-            - name: DEX_CONNECTOR_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values | get "overrides.unbind.auth.dex.secretName" "dex-client-secrets" }}
-                  key: connector-oidc-secret
-            - name: REDIS_URL
-              value: {{ .Values | get "overrides.unbind.auth.redis.url" (printf "redis-headless.%s:6379" .Values.namespace) }}
 
       - serviceAccount:
           create: true

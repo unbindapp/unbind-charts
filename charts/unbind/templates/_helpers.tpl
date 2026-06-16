@@ -67,14 +67,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Auth Selector labels
-*/}}
-{{- define "unbind.auth.selectorLabels" -}}
-app.kubernetes.io/name: {{ .Values.auth.name }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
 Create the name of the service account to use
 */}}
 {{- define "unbind.serviceAccountName" -}}

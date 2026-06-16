@@ -14,11 +14,11 @@ serviceAccount:
   name: "kube-oidc-proxy"
 
 oidc:
-  issuerUrl: "https://dex.unbind.app"
+  issuerUrl: "https://unbind.example.com/api/oauth2"
   clientId: "unbind-api"
   usernameClaim: "email"
   groupsClaim: "groups"
-  tlsSecretName: "dex-tls"
+  tlsSecretName: "kube-oidc-proxy-tls"
 
 service:
   type: ClusterIP
