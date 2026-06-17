@@ -40,73 +40,12 @@ ingress:
     enabled: true
     secretName: "unbind-app-tls"
 
-# UI Configuration
-ui:
-  enabled: true
-  name: unbind-ui
-  image:
-    repository: "unbindapp/unbind-ui"
-    tag: "latest"
-    pullPolicy: "Always"
-  replicaCount: 2
-  resources:
-    requests:
-      cpu: "500m"
-      memory: "512Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
-  containerPort: 3000
-  service:
-    type: ClusterIP
-    port: 3000
-  ingress:
-    enabled: true  # Enable this for separate ingress
-    annotations:
-      nginx.ingress.kubernetes.io/affinity: cookie
-      nginx.ingress.kubernetes.io/proxy-body-size: 10m
-      nginx.ingress.kubernetes.io/proxy-buffering: "off"
-      nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-      nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-      nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
-      nginx.ingress.kubernetes.io/session-cookie-name: unbind-session
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/upstream-hash-by: $realip_remote_addr
-  env:
-    - name: AUTH_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: unbind-authjs-secrets
-          key: auth-secret
-    - name: AUTH_URL
-      value: "https://unbind.example.com/api-internal/auth"
-    - name: UNBIND_API_EXTERNAL_URL
-      value: "https://unbind.example.com/api"
-    - name: UNBIND_API_INTERNAL_URL
-      value: "http://unbind-api.unbind-system.svc.cluster.local:8089"
-    - name: SITE_URL
-      value: "https://unbind.example.com"
-  startupProbe:
-    enabled: true
-    failureThreshold: 30
-    periodSeconds: 10
-  livenessProbe:
-    enabled: true
-    initialDelaySeconds: 15
-    failureThreshold:  10
-    periodSeconds: 10
-  readinessProbe:
-    enabled: true
-    initialDelaySeconds: 10
-    failureThreshold:  20
-    periodSeconds: 5
-
-# API Configuration
+# App Configuration (merged image: the API serves the SPA)
 api:
   enabled: true
   name: unbind-api
   image:
-    repository: "unbindapp/unbind-api"
+    repository: "ghcr.io/unbindapp/unbind"
     tag: "latest"
     pullPolicy: "Always"
   replicaCount: 2

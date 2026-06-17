@@ -103,15 +103,9 @@ overrides:
     operator:
       repository: ghcr.io/unbindapp/unbind-operator
 
-    # UI Configuration
-    ui:
-      repository: ghcr.io/unbindapp/unbind-ui
-      pullPolicy: Always
-      replicaCount: 1
-
-    # API Configuration
+    # App Configuration (merged image: the API serves the SPA)
     api:
-      repository: ghcr.io/unbindapp/unbind-api
+      repository: ghcr.io/unbindapp/unbind
       pullPolicy: Always
       replicaCount: 1
       # Database configuration for API

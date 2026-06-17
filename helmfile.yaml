@@ -724,16 +724,6 @@ releases:
               fi
             }
 
-            echo "Processing unbind-authjs-secrets..."
-            AUTH_SECRET=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-
-            if ! safe_create_secret "unbind-authjs-secrets" generic unbind-authjs-secrets \
-              --namespace="$NAMESPACE" \
-              --from-literal=auth-secret="${AUTH_SECRET}"; then
-              echo "Error: Failed to ensure unbind-authjs-secrets exists. Halting hook." >&2
-              exit 1
-            fi
-
             if [ "$EXTERNAL_REGISTRY_ENABLED" = "true" ]; then
               echo "Using external registry. Creating registry credentials..."
               
@@ -771,47 +761,11 @@ releases:
           tls:
             secretName: {{ .Values.tlsSecretName }}
 
-      - ui:
-          enabled: true
-          name: unbind-ui
-          image:
-            repository: {{ .Values | get "overrides.unbind.ui.repository" "ghcr.io/unbindapp/unbind-ui" }}
-            tag: {{ .Values.unbindVersion }}
-            pullPolicy: {{ .Values | get "overrides.unbind.ui.pullPolicy" "Always" }}
-          replicaCount: {{ .Values | get "overrides.unbind.ui.replicaCount" 2 }}
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "50m"
-            limits:
-              cpu: {{ .Values | get "overrides.unbind.ui.resources.limits.cpu" "500m" }}
-              memory: {{ .Values | get "overrides.unbind.ui.resources.limits.memory" "1Gi" }}
-          containerPort: 3000
-          service:
-            type: ClusterIP
-            port: 3000
-          ingress:
-            enabled: true
-          env:
-            - name: AUTH_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: unbind-authjs-secrets
-                  key: auth-secret
-            - name: AUTH_URL
-              value: {{ printf "https://%s/api-internal/auth" .Values.unbindDomain }}
-            - name: UNBIND_API_EXTERNAL_URL
-              value: {{ printf "https://%s/api/go" .Values.unbindDomain }}
-            - name: UNBIND_API_INTERNAL_URL
-              value: {{ printf "http://unbind-api.%s.svc.cluster.local:8089" .Values.namespace }}
-            - name: SITE_URL
-              value: {{ printf "https://%s" .Values.unbindDomain }}
-
       - api:
           enabled: true
           name: unbind-api
           image:
-            repository: {{ .Values | get "overrides.unbind.api.repository" "ghcr.io/unbindapp/unbind-api" }}
+            repository: {{ .Values | get "overrides.unbind.api.repository" "ghcr.io/unbindapp/unbind" }}
             tag: {{ .Values.unbindVersion }}
             pullPolicy: {{ .Values | get "overrides.unbind.api.pullPolicy" "Always" }}
           replicaCount: {{ .Values | get "overrides.unbind.api.replicaCount" 2 }}
